@@ -1,0 +1,46 @@
+import { describe, it, expect, beforeEach } from "vitest"
+import { useImageWarpStore } from "@/lib/store"
+
+describe("store: contrato de puntos fuera de rango", () => {
+  beforeEach(() => {
+    useImageWarpStore.getState().resetPoints()
+  })
+
+  // --- Acceptance Test ---
+  it("AT: almacena un punto con coordenadas fuera de [0,1]", () => {
+    const { updatePoint } = useImageWarpStore.getState()
+    updatePoint(0, { x: -0.2, y: 1.3 })
+
+    const point = useImageWarpStore.getState().points[0]
+    expect(point).toEqual({ x: -0.2, y: 1.3 })
+  })
+
+  // --- Unit Tests ---
+  it("almacena coordenada x negativa sin modificar", () => {
+    const { updatePoint } = useImageWarpStore.getState()
+    updatePoint(1, { x: -0.5, y: 0.5 })
+
+    const point = useImageWarpStore.getState().points[1]
+    expect(point.x).toBe(-0.5)
+  })
+
+  it("almacena coordenada y mayor que 1 sin modificar", () => {
+    const { updatePoint } = useImageWarpStore.getState()
+    updatePoint(2, { x: 0.5, y: 1.8 })
+
+    const point = useImageWarpStore.getState().points[2]
+    expect(point.y).toBe(1.8)
+  })
+
+  it("resetPoints restaura defaults dentro de [0,1]", () => {
+    const store = useImageWarpStore.getState()
+    store.updatePoint(0, { x: -0.5, y: 2.0 })
+    store.resetPoints()
+
+    const points = useImageWarpStore.getState().points
+    expect(points[0]).toEqual({ x: 0.2, y: 0.2 })
+    expect(points[1]).toEqual({ x: 0.8, y: 0.2 })
+    expect(points[2]).toEqual({ x: 0.8, y: 0.8 })
+    expect(points[3]).toEqual({ x: 0.2, y: 0.8 })
+  })
+})
