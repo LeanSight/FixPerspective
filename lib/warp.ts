@@ -205,21 +205,22 @@ export function perspectiveTransform(
     y: point.y * canvasSize.height,
   }))
 
-  // Calculate target rectangle dimensions based on the quad points
+  // Sort corners and compute output size using Euclidean edge distances
+  const sortedCorners = identifyCorners(quadPoints)
+  const { width: rectWidth, height: rectHeight } = computeOutputSize(sortedCorners)
+
+  // Bounding box for positioning within the canvas
   const minX = Math.floor(Math.min(...quadPoints.map(p => p.x)))
-  const maxX = Math.ceil(Math.max(...quadPoints.map(p => p.x)))
   const minY = Math.floor(Math.min(...quadPoints.map(p => p.y)))
-  const maxY = Math.ceil(Math.max(...quadPoints.map(p => p.y)))
-  
-  const rectWidth = maxX - minX
-  const rectHeight = maxY - minY
-  
+  const maxX = Math.ceil(minX + rectWidth)
+  const maxY = Math.ceil(minY + rectHeight)
+
   // Define the target rectangle corners (destination points)
   const rectPoints = [
-    { x: minX, y: minY },                  // Top-left
-    { x: minX + rectWidth, y: minY },      // Top-right
-    { x: minX + rectWidth, y: minY + rectHeight }, // Bottom-right
-    { x: minX, y: minY + rectHeight }      // Bottom-left
+    { x: minX, y: minY },
+    { x: minX + rectWidth, y: minY },
+    { x: minX + rectWidth, y: minY + rectHeight },
+    { x: minX, y: minY + rectHeight }
   ]
   
   // We'll use the built-in canvas transformation for better results
@@ -423,15 +424,11 @@ export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], qu
     y: point.y * canvas.height,
   }))
 
-  // Calculate the bounding box of the source points
-  const minX = Math.floor(Math.min(...sourcePoints.map((p) => p.x)))
-  const minY = Math.floor(Math.min(...sourcePoints.map((p) => p.y)))
-  const maxX = Math.ceil(Math.max(...sourcePoints.map((p) => p.x)))
-  const maxY = Math.ceil(Math.max(...sourcePoints.map((p) => p.y)))
-
-  // Calculate the dimensions of the output
-  const width = Math.round(maxX - minX)
-  const height = Math.round(maxY - minY)
+  // Sort corners and compute output size using Euclidean edge distances
+  const sortedCorners = identifyCorners(sourcePoints)
+  const outputSize = computeOutputSize(sortedCorners)
+  const width = Math.round(outputSize.width)
+  const height = Math.round(outputSize.height)
   
   console.log("Output region:", minX, minY, width, height)
 
