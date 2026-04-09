@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest"
 // We need to test identifyCorners and the perspective transform with OOB points.
 // identifyCorners is not exported, so we test it indirectly via a re-export or
 // we extract and test the core logic. For now, let's export it for testing.
-import { identifyCorners, computeOutputSize } from "@/lib/warp"
+import { identifyCorners, computeOutputSize, computeRealOutputSize, lineIntersect } from "@/lib/warp"
 
 describe("warp: puntos fuera de rango", () => {
   // --- AT: identifyCorners funciona con coordenadas negativas ---
@@ -120,5 +120,71 @@ describe("computeOutputSize", () => {
     // Left: sqrt((0-100)^2 + (400-0)^2) = sqrt(10000+160000) ≈ 412.3
     // Right: sqrt((800-700)^2 + (400-0)^2) = sqrt(10000+160000) ≈ 412.3
     expect(result.height).toBeCloseTo(412.3, 0)
+  })
+})
+
+describe("lineIntersect", () => {
+  it("encuentra la interseccion de dos lineas", () => {
+    const result = lineIntersect({ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 0 }, { x: 0, y: 1 })
+    expect(result).not.toBeNull()
+    expect(result!.x).toBeCloseTo(0.5)
+    expect(result!.y).toBeCloseTo(0.5)
+  })
+
+  it("retorna null para lineas paralelas", () => {
+    const result = lineIntersect({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 })
+    expect(result).toBeNull()
+  })
+})
+
+describe("computeRealOutputSize", () => {
+  // AT: para un trapecio con perspectiva fuerte (mesa vista desde angulo),
+  // el height debe ser significativamente mayor que el Euclidean height
+  it("AT: trapecio perspectiva produce height mayor que el metodo Euclidiano", () => {
+    // Simula la foto de la mesa: bottom mas ancho (cercano), top mas angosto (lejano)
+    // Los lados van "hacia adentro" de la escena
+    const corners = [
+      { x: 56, y: 144 },   // TL (lejano)
+      { x: 712, y: 120 },  // TR (lejano)
+      { x: 912, y: 512 },  // BR (cercano)
+      { x: -24, y: 528 },  // BL (cercano)
+    ]
+    const eucResult = computeOutputSize(corners)
+    const realResult = computeRealOutputSize(corners, 800, 600)
+
+    // El height real debe ser mayor que el Euclidiano (los lados estan acortados por perspectiva)
+    expect(realResult.height).toBeGreaterThan(eucResult.height)
+  })
+
+  it("rectangulo sin perspectiva retorna dimensiones similares al Euclidiano", () => {
+    // Un rectangulo casi sin distorsion (bordes casi paralelos)
+    const corners = [
+      { x: 100, y: 100 },
+      { x: 700, y: 100 },
+      { x: 700, y: 500 },
+      { x: 100, y: 500 },
+    ]
+    const result = computeRealOutputSize(corners, 800, 600)
+    // Deberia ser cercano a 600x400
+    expect(result.width).toBeCloseTo(600, -1)
+    expect(result.height).toBeCloseTo(400, -1)
+  })
+
+  it("el aspect ratio width/height es menor que el Euclidiano para perspectiva fuerte", () => {
+    // Bottom edge mucho mas ancho que top = perspectiva fuerte
+    const corners = [
+      { x: 200, y: 100 },  // TL
+      { x: 600, y: 100 },  // TR
+      { x: 900, y: 500 },  // BR
+      { x: -100, y: 500 }, // BL
+    ]
+    const eucResult = computeOutputSize(corners)
+    const realResult = computeRealOutputSize(corners, 1000, 600)
+
+    const eucRatio = eucResult.width / eucResult.height
+    const realRatio = realResult.width / realResult.height
+
+    // El ratio real debe ser menor (mas alto) que el Euclidiano
+    expect(realRatio).toBeLessThan(eucRatio)
   })
 })

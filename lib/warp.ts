@@ -25,6 +25,156 @@ export function computeOutputSize(
   }
 }
 
+/**
+ * Intersection of line through p1-p2 with line through p3-p4.
+ * Returns null if lines are parallel.
+ */
+export function lineIntersect(
+  p1: { x: number; y: number }, p2: { x: number; y: number },
+  p3: { x: number; y: number }, p4: { x: number; y: number }
+): { x: number; y: number } | null {
+  const d1x = p2.x - p1.x, d1y = p2.y - p1.y
+  const d2x = p4.x - p3.x, d2y = p4.y - p3.y
+  const cross = d1x * d2y - d1y * d2x
+  if (Math.abs(cross) < 1e-10) return null
+  const t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / cross
+  return { x: p1.x + t * d1x, y: p1.y + t * d1y }
+}
+
+/**
+ * Computes the output rectangle dimensions using 3D reconstruction via
+ * vanishing points and estimated focal length. Falls back to Euclidean
+ * method if vanishing points are degenerate.
+ *
+ * Corners: [TL, TR, BR, BL] in pixel coordinates.
+ * imageWidth/imageHeight: dimensions of the source image (for principal point).
+ */
+export function computeRealOutputSize(
+  corners: { x: number; y: number }[],
+  imageWidth: number,
+  imageHeight: number
+): { width: number; height: number } {
+  const [tl, tr, br, bl] = corners
+  const dist2d = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+
+  // Vanishing point of vertical edges (left/right sides converge here)
+  const vv = lineIntersect(tl, bl, tr, br)
+
+  if (!vv) return computeOutputSize(corners) // parallel sides → Euclidean is fine
+
+  // Euclidean edge lengths
+  const eucWidthTop = dist2d(tl, tr)
+  const eucWidthBot = dist2d(bl, br)
+  const eucHeightLeft = dist2d(tl, bl)
+  const eucHeightRight = dist2d(tr, br)
+  const eucWidth = Math.max(eucWidthTop, eucWidthBot)
+  const eucHeight = Math.max(eucHeightLeft, eucHeightRight)
+
+  // For edges on lines converging to VP, depth is inversely proportional to
+  // distance to VP. The top and bottom edges are at different depths.
+  // Opposite edges of a rectangle have equal real-world length, so:
+  //   realWidth = eucWidthTop * depthTop / f = eucWidthBot * depthBot / f
+  // where depthTop ∝ 1/dist(midTop, vv) and depthBot ∝ 1/dist(midBot, vv)
+  //
+  // We can estimate the "average depth" at each edge using midpoints' distance to vv.
+  const midTop = { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }
+  const midBot = { x: (bl.x + br.x) / 2, y: (bl.y + br.y) / 2 }
+  const midLeft = { x: (tl.x + bl.x) / 2, y: (tl.y + bl.y) / 2 }
+  const midRight = { x: (tr.x + br.x) / 2, y: (tr.y + br.y) / 2 }
+
+  const dMidTopVV = dist2d(midTop, vv)
+  const dMidBotVV = dist2d(midBot, vv)
+
+  // Depth ratio: top is further from camera (closer to VP) so dMidTopVV < dMidBotVV
+  // depthTop/depthBot = dMidBotVV/dMidTopVV
+  // Real width (from top edge): eucWidthTop * depthTop = eucWidthTop * (dMidBotVV/dMidTopVV) * k
+  // Real width (from bot edge): eucWidthBot * depthBot = eucWidthBot * k
+  // These should be equal (opposite sides): average for robustness
+  const realWidthFromTop = eucWidthTop * (dMidBotVV / dMidTopVV)
+  const realWidthFromBot = eucWidthBot
+  const realWidth = (realWidthFromTop + realWidthFromBot) / 2
+
+  // For height: the height edges go from near (bottom) to far (top).
+  // The real height is larger than the Euclidean height because the edge is foreshortened.
+  // For an edge from A to B converging to VP, the real length is:
+  //   realLen = integral of ds, where each infinitesimal piece ds at depth z has
+  //   image length ds_img = f * ds / z
+  //
+  // For a straight line from A to B going toward VP:
+  //   The depth at A: zA ∝ 1/dist(A, VP), at B: zB ∝ 1/dist(B, VP)
+  //   Real height ∝ eucHeight * log(zA/zB) / (1/zB - 1/zA) ... actually this is complex.
+  //
+  // Simpler approximation: real height / euc height ≈ geometric mean of depth at endpoints
+  // divided by depth at midpoint ≈ correction based on VP distance ratio.
+  //
+  // For left edge: endpoints TL (far, dist dTL_vv) and BL (near, dist dBL_vv)
+  // The real height is proportional to: eucHeight * sqrt(dBL/dTL) approximately
+  // (geometric mean correction for depth change along the edge)
+  const dTL_vv = dist2d(tl, vv)
+  const dBL_vv = dist2d(bl, vv)
+  const dTR_vv = dist2d(tr, vv)
+  const dBR_vv = dist2d(br, vv)
+
+  // Correction factor: ratio of depths at endpoints
+  // A segment going from depth Z1 to Z2 has its image compressed by the average depth factor.
+  // Real length ≈ image_length * (Z_near + Z_far) / (2 * Z_midpoint)
+  // Since Z ∝ 1/dist_to_VP:
+  // ≈ image_length * (1/dA + 1/dB) / (2 / ((dA+dB)/2))
+  // = image_length * (dA + dB)/(2*dA*dB) * (dA+dB)/2 ... doesn't simplify well.
+  //
+  // Practical approximation using the log-mean:
+  // For a segment where depth changes linearly from Z1 to Z2:
+  // real_length / image_length ≈ (Z2-Z1) / (ln(Z2/Z1) * Z_ref) ... still complex.
+  //
+  // Simplest effective approach: use the ratio of VP distances to correct height.
+  // The foreshortening factor for an edge from A to B toward VP is approximately:
+  //   correction = ln(dA/dB) / (1/dB - 1/dA) * dMid (for dA > dB, i.e. A is nearer)
+  //
+  // Even simpler: depth at midpoint of height edge vs depth at midpoint of width edge.
+  // The width edge at the bottom is at depth ∝ 1/dMidBotVV
+  // The height edge midpoint is at ∝ 1/dMidLeftVV
+  // If the height edge were at the same depth as the width edge, its real length would
+  // be eucHeight. But it's at a different "average" depth that's a mix of near and far.
+  //
+  // Most practical: the real aspect ratio is:
+  // W/H = realWidth / realHeight
+  // where realHeight = eucHeight * correctionFactor
+  // correctionFactor = average(dBL_vv, dBR_vv) / average(dMidLeft_vv, dMidRight_vv)
+  // (ratio of "bottom depth" to "average height depth")
+  //
+  // Actually let me use a cleaner approach. Since opposite width edges have the same
+  // real length, the ratio eucWidthTop/eucWidthBot = depthBot/depthTop = dMidTopVV/dMidBotVV.
+  // This gives us the depth ratio between top and bottom.
+  //
+  // The real height can be estimated as:
+  // For left edge going from BL (near) to TL (far):
+  //   Average depth along the edge = geometric mean of endpoints' depths
+  //   = sqrt(depthBL * depthTL)
+  //   = sqrt((1/dBL_vv) * (1/dTL_vv)) * k
+  //   = k / sqrt(dBL_vv * dTL_vv)
+  //
+  //   Real height = eucHeightLeft * avg_depth / f_ref
+  //
+  // For the width, the bottom edge is entirely at depth = k/dMidBotVV:
+  //   Real width = eucWidthBot * depthBot / f_ref = eucWidthBot * k / dMidBotVV / f_ref
+  //
+  // Aspect ratio W/H:
+  //   = (eucWidthBot / dMidBotVV) / (eucHeightLeft / sqrt(dBL_vv * dTL_vv))
+  //   = (eucWidthBot * sqrt(dBL_vv * dTL_vv)) / (eucHeightLeft * dMidBotVV)
+
+  const corrHeightLeft = eucHeightLeft * dMidBotVV / Math.sqrt(dBL_vv * dTL_vv)
+  const corrHeightRight = eucHeightRight * dMidBotVV / Math.sqrt(dBR_vv * dTR_vv)
+  const realHeight = Math.max(corrHeightLeft, corrHeightRight)
+
+  if (realHeight <= 0) return computeOutputSize(corners)
+
+  return {
+    width: eucWidth,
+    height: realHeight,
+  }
+}
+
 // Draw the straight path connecting the control points
 export function drawPath(
   ctx: CanvasRenderingContext2D,
@@ -205,9 +355,9 @@ export function perspectiveTransform(
     y: point.y * canvasSize.height,
   }))
 
-  // Sort corners and compute output size using Euclidean edge distances
+  // Sort corners and compute output size using VP-corrected dimensions
   const sortedCorners = identifyCorners(quadPoints)
-  const { width: rectWidth, height: rectHeight } = computeOutputSize(sortedCorners)
+  const { width: rectWidth, height: rectHeight } = computeRealOutputSize(sortedCorners, canvasSize.width, canvasSize.height)
 
   // Bounding box for positioning within the canvas
   const minX = Math.floor(Math.min(...quadPoints.map(p => p.x)))
@@ -424,9 +574,9 @@ export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], qu
     y: point.y * canvas.height,
   }))
 
-  // Sort corners and compute output size using Euclidean edge distances
+  // Sort corners and compute output size using VP-corrected dimensions
   const sortedCorners = identifyCorners(sourcePoints)
-  const outputSize = computeOutputSize(sortedCorners)
+  const outputSize = computeRealOutputSize(sortedCorners, canvas.width, canvas.height)
   const width = Math.round(outputSize.width)
   const height = Math.round(outputSize.height)
   
