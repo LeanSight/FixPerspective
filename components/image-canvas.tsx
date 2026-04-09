@@ -22,6 +22,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const [dragPointIndex, setDragPointIndex] = useState<number | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
   const [imageSize, setImageSize] = useState({ imageWidth: 0, imageHeight: 0 })
+  const [originalSize, setOriginalSize] = useState({ width: 0, height: 0 })
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit")
   const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 })
   const [showMagnifier, setShowMagnifier] = useState(false)
@@ -45,6 +46,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
         const imgH = img.height * scale
 
         setImageSize({ imageWidth: imgW, imageHeight: imgH })
+        setOriginalSize({ width: img.width, height: img.height })
 
         // Padded canvas is larger to allow control points outside image bounds
         const padded = getPaddedCanvasSize({ imageWidth: imgW, imageHeight: imgH })
@@ -52,11 +54,11 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
 
         canvasRef.current.width = padded.width
         canvasRef.current.height = padded.height
-        // Preview and cropped canvases stay at image size (no padding)
-        previewCanvasRef.current.width = imgW
-        previewCanvasRef.current.height = imgH
-        croppedCanvasRef.current.width = imgW
-        croppedCanvasRef.current.height = imgH
+        // Preview and cropped canvases use original image resolution for quality
+        previewCanvasRef.current.width = img.width
+        previewCanvasRef.current.height = img.height
+        croppedCanvasRef.current.width = img.width
+        croppedCanvasRef.current.height = img.height
 
         if (magnifierCanvasRef.current) {
           magnifierCanvasRef.current.width = magnifierSize;
@@ -162,10 +164,11 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
 
       canvasRef.current.width = padded.width
       canvasRef.current.height = padded.height
-      previewCanvasRef.current.width = imgW
-      previewCanvasRef.current.height = imgH
-      croppedCanvasRef.current.width = imgW
-      croppedCanvasRef.current.height = imgH
+      // Preview/cropped keep original resolution (no change on resize)
+      previewCanvasRef.current.width = image.width
+      previewCanvasRef.current.height = image.height
+      croppedCanvasRef.current.width = image.width
+      croppedCanvasRef.current.height = image.height
     }
 
     window.addEventListener("resize", handleResize)
@@ -234,21 +237,21 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
       ctx.fillText((index + 1).toString(), px, py);
     });
 
-    // Preview/cropped canvases use image size (no padding)
-    const imgCanvasSize = { width: imageSize.imageWidth, height: imageSize.imageHeight }
+    // Preview/cropped canvases use original image resolution for full quality
+    const fullResSize = { width: originalSize.width, height: originalSize.height }
 
     // Handle preview canvas based on correction status
     if (isCorrected) {
-      // Crop + perspective transform in one step
-      croppedCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
-      cropImage(croppedCtx, image, points, imgCanvasSize)
-      previewCtx.clearRect(0, 0, imgCanvasSize.width, imgCanvasSize.height)
-      perspectiveTransform(previewCtx, croppedCanvasRef.current, points, imgCanvasSize)
+      // Crop + perspective transform at original resolution
+      croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
+      cropImage(croppedCtx, image, points, fullResSize)
+      previewCtx.clearRect(0, 0, fullResSize.width, fullResSize.height)
+      perspectiveTransform(previewCtx, croppedCanvasRef.current, points, fullResSize)
     } else {
-      previewCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
-      drawPath(previewCtx, points, imgCanvasSize)
+      previewCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
+      drawPath(previewCtx, points, fullResSize)
     }
-  }, [image, points, canvasSize, imageSize, activeTab, isCorrected, isMobile, isDragging, dragPointIndex])
+  }, [image, points, canvasSize, imageSize, originalSize, activeTab, isCorrected, isMobile, isDragging, dragPointIndex])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

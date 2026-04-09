@@ -83,6 +83,23 @@ export function findHitPoint(
 }
 
 /**
+ * Computes the internal (pixel) and display (CSS) sizes for preview/cropped canvases.
+ * Internal size = original image resolution (for quality).
+ * Display size = viewport-constrained size (for layout).
+ */
+export function computePreviewSizes(
+  originalWidth: number,
+  originalHeight: number,
+  displayWidth: number,
+  displayHeight: number
+): { internal: CanvasSize; display: CanvasSize } {
+  return {
+    internal: { width: originalWidth, height: originalHeight },
+    display: { width: displayWidth, height: displayHeight },
+  }
+}
+
+/**
  * Converts raw pointer pixel coordinates to normalized coordinates
  * relative to the canvas size. No clamping — values can be outside [0,1].
  */

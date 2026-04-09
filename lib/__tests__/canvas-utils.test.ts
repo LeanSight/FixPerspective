@@ -5,6 +5,7 @@ import {
   canvasToPoint,
   getPaddedCanvasSize,
   findHitPoint,
+  computePreviewSizes,
   PADDING_RATIO,
 } from "@/lib/canvas-utils"
 
@@ -163,5 +164,28 @@ describe("findHitPoint", () => {
     // point 1 at px=600, py=450. Click at 600+11 = 611 (just outside radius 10)
     const result = findHitPoint(611, 450, points, imageRect, hitRadius, pad)
     expect(result).toBeNull()
+  })
+})
+
+describe("computePreviewSizes", () => {
+  // AT: preview usa resolucion original internamente
+  it("AT: internal size es la resolucion original de la imagen", () => {
+    const result = computePreviewSizes(4000, 3000, 800, 600)
+    expect(result.internal.width).toBe(4000)
+    expect(result.internal.height).toBe(3000)
+  })
+
+  it("display size es el tamano de viewport", () => {
+    const result = computePreviewSizes(4000, 3000, 800, 600)
+    expect(result.display.width).toBe(800)
+    expect(result.display.height).toBe(600)
+  })
+
+  it("funciona cuando original es menor que display", () => {
+    const result = computePreviewSizes(400, 300, 800, 600)
+    expect(result.internal.width).toBe(400)
+    expect(result.internal.height).toBe(300)
+    expect(result.display.width).toBe(800)
+    expect(result.display.height).toBe(600)
   })
 })
