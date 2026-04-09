@@ -9,12 +9,10 @@ export interface Point {
 
 interface ImageWarpState {
   points: Point[]
-  isCropped: boolean
-  isWarped: boolean
+  isCorrected: boolean
   updatePoint: (index: number, position: { x: number; y: number }) => void
   resetPoints: () => void
-  setCropStatus: (status: boolean) => void
-  setWarpStatus: (status: boolean) => void
+  setCorrected: (status: boolean) => void
 }
 
 // Default points positioned at the corners of the image in a quadrilateral shape
@@ -31,8 +29,7 @@ const DEFAULT_POINTS: Point[] = [
 
 export const useImageWarpStore = create<ImageWarpState>((set) => ({
   points: [...DEFAULT_POINTS],
-  isCropped: false,
-  isWarped: false,
+  isCorrected: false,
 
   updatePoint: (index, position) =>
     set((state) => {
@@ -42,14 +39,12 @@ export const useImageWarpStore = create<ImageWarpState>((set) => ({
         x: position.x,
         y: position.y,
       }
-      return { points: newPoints }
+      return { points: newPoints, isCorrected: false }
     }),
 
-  resetPoints: () => set({ points: [...DEFAULT_POINTS], isCropped: false, isWarped: false }),
+  resetPoints: () => set({ points: [...DEFAULT_POINTS], isCorrected: false }),
 
-  setCropStatus: (status) => set({ isCropped: status, isWarped: false }),
-
-  setWarpStatus: (status) => set({ isWarped: status }),
+  setCorrected: (status) => set({ isCorrected: status }),
 }))
 
 // Interface for language support
