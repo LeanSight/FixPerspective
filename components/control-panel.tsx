@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import { useImageWarpStore, useLanguageStore } from "@/lib/store"
-import { Download, RotateCcw, Crop, Check, Move } from "lucide-react"
+import { Download, RotateCcw, Check, Move } from "lucide-react"
 import { exportWarpedImage } from "@/lib/warp"
 import { useMobile } from "@/hooks/use-mobile"
 import { getTranslation } from "@/lib/translations"
@@ -16,7 +16,7 @@ interface ControlPanelProps {
 }
 
 export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPanelProps) {
-  const { resetPoints, points, isCropped, isWarped, setCropStatus, setWarpStatus } = useImageWarpStore()
+  const { resetPoints, points, isCorrected, setCorrected } = useImageWarpStore()
   const { language } = useLanguageStore()
   const [quality, setQuality] = useState(90)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
@@ -101,9 +101,7 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
       const baseFileName = fileName.replace(/\.[^/.]+$/, "") || "image"
       
       // Create descriptive filename with dimensions
-      const outputFileName = isWarped 
-        ? `${baseFileName}-perspective-corrected.${fileFormat}` 
-        : `${baseFileName}-cropped.${fileFormat}`
+      const outputFileName = `${baseFileName}-perspective-corrected.${fileFormat}`
         
       link.download = outputFileName
       link.href = dataUrl
@@ -117,19 +115,8 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
     }
   }
 
-  const toggleCrop = () => {
-    setCropStatus(!isCropped)
-  }
-
-  const toggleWarp = () => {
-    if (!isCropped) {
-      // If not cropped yet, crop first then warp
-      setCropStatus(true)
-      setWarpStatus(true)
-    } else {
-      // Toggle warp state
-      setWarpStatus(!isWarped)
-    }
+  const toggleCorrection = () => {
+    setCorrected(!isCorrected)
   }
 
   return (
@@ -149,29 +136,12 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
           </div>
 
           <div className="pt-2">
-            <Button variant={isCropped ? "default" : "outline"} className="w-full" onClick={toggleCrop}>
-              {isCropped ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  {t.cropped}
-                </>
-              ) : (
-                <>
-                  <Crop className="h-4 w-4 mr-2" />
-                  {t.cropImage}
-                </>
-              )}
-            </Button>
-          </div>
-
-          <div className="pt-2">
             <Button
-              variant={isWarped ? "default" : "outline"}
+              variant={isCorrected ? "default" : "outline"}
               className="w-full"
-              onClick={toggleWarp}
-              disabled={!isCropped && !isWarped}
+              onClick={toggleCorrection}
             >
-              {isWarped ? (
+              {isCorrected ? (
                 <>
                   <Check className="h-4 w-4 mr-2" />
                   {t.perspectiveCorrected}
@@ -227,11 +197,9 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
 
           <div className="pt-4 text-xs text-muted-foreground">
             <p>
-              {isWarped
+              {isCorrected
                 ? t.perspectiveExportDesc
-                : isCropped
-                  ? t.croppedExportDesc
-                  : t.requireCropDesc}
+                : t.requireCropDesc}
             </p>
           </div>
         </TabsContent>
