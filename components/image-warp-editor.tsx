@@ -67,6 +67,7 @@ export default function ImageWarpEditor() {
 
   return (
     <div className="grid gap-6">
+      <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
       <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-6 md:p-12 bg-card">
         {!imageUrl ? (
           <div className="text-center">
@@ -75,7 +76,6 @@ export default function ImageWarpEditor() {
             <p className="mt-1 text-xs text-muted-foreground">{t.uploadDescription}</p>
             <div className="mt-6">
               <Button onClick={triggerFileInput}>{t.selectImage}</Button>
-              <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
             </div>
           </div>
         ) : (
