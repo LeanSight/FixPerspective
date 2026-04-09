@@ -4,6 +4,7 @@ import {
   pointToCanvas,
   canvasToPoint,
   getPaddedCanvasSize,
+  findHitPoint,
   PADDING_RATIO,
 } from "@/lib/canvas-utils"
 
@@ -119,5 +120,48 @@ describe("pointToCanvas / canvasToPoint", () => {
     const result = canvasToPoint(600, 450, imageRect, pad)
     expect(result.x).toBeCloseTo(0.5)
     expect(result.y).toBeCloseTo(0.5)
+  })
+})
+
+describe("findHitPoint", () => {
+  const imageRect = { imageWidth: 800, imageHeight: 600 }
+  const pad = 0.25
+  const hitRadius = 10
+
+  const points = [
+    { x: -0.1, y: 0.5 },  // OOB left
+    { x: 0.5, y: 0.5 },   // center
+    { x: 1.1, y: 0.5 },   // OOB right
+    { x: 0.5, y: -0.1 },  // OOB top
+  ]
+
+  // --- AT: punto OOB es seleccionable ---
+  it("AT: detecta punto en area de padding (x=-0.1) al clickear cerca de su posicion", () => {
+    // point 0 at {-0.1, 0.5} => px = 200 + (-0.1)*800 = 120, py = 150 + 0.5*600 = 450
+    const result = findHitPoint(120, 450, points, imageRect, hitRadius, pad)
+    expect(result).toBe(0)
+  })
+
+  it("detecta punto dentro de la imagen", () => {
+    // point 1 at {0.5, 0.5} => px = 200 + 0.5*800 = 600, py = 150 + 0.5*600 = 450
+    const result = findHitPoint(600, 450, points, imageRect, hitRadius, pad)
+    expect(result).toBe(1)
+  })
+
+  it("detecta punto OOB a la derecha", () => {
+    // point 2 at {1.1, 0.5} => px = 200 + 1.1*800 = 1080, py = 450
+    const result = findHitPoint(1080, 450, points, imageRect, hitRadius, pad)
+    expect(result).toBe(2)
+  })
+
+  it("retorna null cuando el click esta lejos de todos los puntos", () => {
+    const result = findHitPoint(0, 0, points, imageRect, hitRadius, pad)
+    expect(result).toBeNull()
+  })
+
+  it("retorna null con hit justo fuera del radio", () => {
+    // point 1 at px=600, py=450. Click at 600+11 = 611 (just outside radius 10)
+    const result = findHitPoint(611, 450, points, imageRect, hitRadius, pad)
+    expect(result).toBeNull()
   })
 })

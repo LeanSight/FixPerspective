@@ -6,7 +6,7 @@ import { useRef, useEffect, useState } from "react"
 import { useImageWarpStore } from "@/lib/store"
 import { drawPath, drawControlPoints, cropImage, perspectiveTransform } from "@/lib/warp"
 import { useMobile } from "@/hooks/use-mobile"
-import { pointToCanvas, canvasToPoint, getPaddedCanvasSize, PADDING_RATIO } from "@/lib/canvas-utils"
+import { pointToCanvas, canvasToPoint, getPaddedCanvasSize, findHitPoint, PADDING_RATIO } from "@/lib/canvas-utils"
 
 interface ImageCanvasProps {
   imageUrl: string
@@ -266,20 +266,13 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     const y = e.clientY - rect.top
 
     // Check if we're clicking on a control point
-    for (let i = 0; i < points.length; i++) {
-      const { px, py } = pointToCanvas(points[i], imageSize)
-      const dx = x - px
-      const dy = y - py
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      const hitRadius = isMobile ? 15 : 10
-
-      if (distance < hitRadius) {
-        setIsDragging(true)
-        setDragPointIndex(i)
-        setShowMagnifier(true)
-        setMagnifierPosition({ x, y })
-        return
-      }
+    const hitRadius = isMobile ? 15 : 10
+    const hitIndex = findHitPoint(x, y, points, imageSize, hitRadius)
+    if (hitIndex !== null) {
+      setIsDragging(true)
+      setDragPointIndex(hitIndex)
+      setShowMagnifier(true)
+      setMagnifierPosition({ x, y })
     }
   }
 
@@ -316,20 +309,12 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     const y = touch.clientY - rect.top
 
     // Check if we're touching a control point
-    for (let i = 0; i < points.length; i++) {
-      const { px, py } = pointToCanvas(points[i], imageSize)
-      const dx = x - px
-      const dy = y - py
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      const hitRadius = 15 // Larger hit area for touch
-
-      if (distance < hitRadius) {
-        setIsDragging(true)
-        setDragPointIndex(i)
-        setShowMagnifier(true)
-        setMagnifierPosition({ x, y })
-        return
-      }
+    const hitIndex = findHitPoint(x, y, points, imageSize, 15)
+    if (hitIndex !== null) {
+      setIsDragging(true)
+      setDragPointIndex(hitIndex)
+      setShowMagnifier(true)
+      setMagnifierPosition({ x, y })
     }
   }
 

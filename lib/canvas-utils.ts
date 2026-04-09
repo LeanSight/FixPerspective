@@ -60,6 +60,29 @@ export function getPaddedCanvasSize(
 }
 
 /**
+ * Finds which control point (if any) is hit by a click at (clickX, clickY)
+ * in padded-canvas pixel coordinates. Returns the index or null.
+ */
+export function findHitPoint(
+  clickX: number,
+  clickY: number,
+  points: { x: number; y: number }[],
+  imageRect: ImageRect,
+  hitRadius: number,
+  paddingRatio: number = PADDING_RATIO
+): number | null {
+  for (let i = 0; i < points.length; i++) {
+    const { px, py } = pointToCanvas(points[i], imageRect, paddingRatio)
+    const dx = clickX - px
+    const dy = clickY - py
+    if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
+      return i
+    }
+  }
+  return null
+}
+
+/**
  * Converts raw pointer pixel coordinates to normalized coordinates
  * relative to the canvas size. No clamping — values can be outside [0,1].
  */
