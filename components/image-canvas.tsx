@@ -269,10 +269,10 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     const y = e.clientY - rect.top
     
     if (isDragging && dragPointIndex !== null) {
-      // Update point position (normalized to 0-1)
+      // Update point position (normalized, no clamping — allows out-of-bounds)
       updatePoint(dragPointIndex, {
-        x: Math.max(0, Math.min(1, x / canvasSize.width)),
-        y: Math.max(0, Math.min(1, y / canvasSize.height)),
+        x: x / canvasSize.width,
+        y: y / canvasSize.height,
       })
       
       // Position the magnifier away from the cursor
@@ -335,10 +335,10 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     const x = touch.clientX - rect.left
     const y = touch.clientY - rect.top
 
-    // Update point position (normalized to 0-1)
+    // Update point position (normalized, no clamping — allows out-of-bounds)
     updatePoint(dragPointIndex, {
-      x: Math.max(0, Math.min(1, x / canvasSize.width)),
-      y: Math.max(0, Math.min(1, y / canvasSize.height)),
+      x: x / canvasSize.width,
+      y: y / canvasSize.height,
     })
     
     // Position the magnifier away from the touch point (above the finger)
