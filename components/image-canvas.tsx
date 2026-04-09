@@ -6,6 +6,7 @@ import { useRef, useEffect, useState } from "react"
 import { useImageWarpStore } from "@/lib/store"
 import { drawPath, drawControlPoints, cropImage, perspectiveTransform } from "@/lib/warp"
 import { useMobile } from "@/hooks/use-mobile"
+import { pointToCanvas, canvasToPoint, getPaddedCanvasSize, PADDING_RATIO } from "@/lib/canvas-utils"
 
 interface ImageCanvasProps {
   imageUrl: string
@@ -20,6 +21,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragPointIndex, setDragPointIndex] = useState<number | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  const [imageSize, setImageSize] = useState({ imageWidth: 0, imageHeight: 0 })
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit")
   const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 })
   const [showMagnifier, setShowMagnifier] = useState(false)
@@ -36,21 +38,26 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     img.onload = () => {
       setImage(img)
       if (canvasRef.current && previewCanvasRef.current && croppedCanvasRef.current) {
-        // Set canvas size based on image dimensions, but constrained to viewport
+        // Set image size based on viewport constraints
         const maxWidth = isMobile ? window.innerWidth - 32 : Math.min(800, window.innerWidth - 40)
         const scale = maxWidth / img.width
-        const width = maxWidth
-        const height = img.height * scale
+        const imgW = maxWidth
+        const imgH = img.height * scale
 
-        setCanvasSize({ width, height })
+        setImageSize({ imageWidth: imgW, imageHeight: imgH })
 
-        canvasRef.current.width = width
-        canvasRef.current.height = height
-        previewCanvasRef.current.width = width
-        previewCanvasRef.current.height = height
-        croppedCanvasRef.current.width = width
-        croppedCanvasRef.current.height = height
-        
+        // Padded canvas is larger to allow control points outside image bounds
+        const padded = getPaddedCanvasSize({ imageWidth: imgW, imageHeight: imgH })
+        setCanvasSize(padded)
+
+        canvasRef.current.width = padded.width
+        canvasRef.current.height = padded.height
+        // Preview and cropped canvases stay at image size (no padding)
+        previewCanvasRef.current.width = imgW
+        previewCanvasRef.current.height = imgH
+        croppedCanvasRef.current.width = imgW
+        croppedCanvasRef.current.height = imgH
+
         if (magnifierCanvasRef.current) {
           magnifierCanvasRef.current.width = magnifierSize;
           magnifierCanvasRef.current.height = magnifierSize;
@@ -93,10 +100,11 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     // If we have a dragging point, draw a precise crosshair at its position
     if (dragPointIndex !== null) {
       const point = points[dragPointIndex];
-      
-      // Calculate where the point should be in the magnifier view
-      const zoomedX = (point.x * canvasSize.width - sourceX) * magnifierZoom;
-      const zoomedY = (point.y * canvasSize.height - sourceY) * magnifierZoom;
+
+      // Calculate where the point should be in the magnifier view (using padded coords)
+      const { px: ptPx, py: ptPy } = pointToCanvas(point, imageSize);
+      const zoomedX = (ptPx - sourceX) * magnifierZoom;
+      const zoomedY = (ptPy - sourceY) * magnifierZoom;
       
       // Draw a more precise crosshair
       magnifierCtx.strokeStyle = 'rgba(255, 255, 0, 0.9)';
@@ -144,17 +152,20 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
 
       const maxWidth = isMobile ? window.innerWidth - 32 : Math.min(800, window.innerWidth - 40)
       const scale = maxWidth / image.width
-      const width = maxWidth
-      const height = image.height * scale
+      const imgW = maxWidth
+      const imgH = image.height * scale
 
-      setCanvasSize({ width, height })
+      setImageSize({ imageWidth: imgW, imageHeight: imgH })
 
-      canvasRef.current.width = width
-      canvasRef.current.height = height
-      previewCanvasRef.current.width = width
-      previewCanvasRef.current.height = height
-      croppedCanvasRef.current.width = width
-      croppedCanvasRef.current.height = height
+      const padded = getPaddedCanvasSize({ imageWidth: imgW, imageHeight: imgH })
+      setCanvasSize(padded)
+
+      canvasRef.current.width = padded.width
+      canvasRef.current.height = padded.height
+      previewCanvasRef.current.width = imgW
+      previewCanvasRef.current.height = imgH
+      croppedCanvasRef.current.width = imgW
+      croppedCanvasRef.current.height = imgH
     }
 
     window.addEventListener("resize", handleResize)
@@ -176,64 +187,75 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     previewCtx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height)
     croppedCtx.clearRect(0, 0, croppedCanvasRef.current.width, croppedCanvasRef.current.height)
 
-    // Draw image on edit canvas
-    ctx.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height)
+    // Draw padding area background (checkerboard pattern to distinguish from image)
+    const padX = PADDING_RATIO * imageSize.imageWidth
+    const padY = PADDING_RATIO * imageSize.imageHeight
+    ctx.fillStyle = "rgba(128, 128, 128, 0.15)"
+    ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height)
 
-    // Draw path on edit canvas
-    drawPath(ctx, points, canvasSize)
+    // Draw image on edit canvas with padding offset
+    ctx.drawImage(image, padX, padY, imageSize.imageWidth, imageSize.imageHeight)
+
+    // Draw path on edit canvas using padded coordinates
+    ctx.strokeStyle = "rgba(59, 130, 246, 0.8)"
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    const startPt = pointToCanvas(points[0], imageSize)
+    ctx.moveTo(startPt.px, startPt.py)
+    for (let i = 1; i < points.length; i++) {
+      const pt = pointToCanvas(points[i], imageSize)
+      ctx.lineTo(pt.px, pt.py)
+    }
+    ctx.closePath()
+    ctx.stroke()
 
     // Draw control points on edit canvas, but skip the currently dragged point
     points.forEach((point, index) => {
-      // Skip drawing the point that's currently being dragged
       if (isDragging && dragPointIndex === index) return;
-      
+
       const pointRadius = isMobile ? 12 : 8;
       const fontSize = isMobile ? "12px" : "10px";
-      
-      // Draw the main control point
+
       ctx.fillStyle = "rgba(59, 130, 246, 0.7)";
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
 
-      const x = point.x * canvasSize.width;
-      const y = point.y * canvasSize.height;
+      const { px, py } = pointToCanvas(point, imageSize);
 
       ctx.beginPath();
-      ctx.arc(x, y, pointRadius, 0, Math.PI * 2);
+      ctx.arc(px, py, pointRadius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      // Draw point index
       ctx.fillStyle = "white";
       ctx.font = `${fontSize} Arial`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText((index + 1).toString(), x, y);
+      ctx.fillText((index + 1).toString(), px, py);
     });
 
+    // Preview/cropped canvases use image size (no padding)
+    const imgCanvasSize = { width: imageSize.imageWidth, height: imageSize.imageHeight }
+
     // Always draw the original image to the cropped canvas first
-    croppedCtx.drawImage(image, 0, 0, croppedCanvasRef.current.width, croppedCanvasRef.current.height)
+    croppedCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
 
     // Handle preview canvas based on crop and warp status
     if (isCropped) {
-      // First, crop the image to the shape - apply to the cropped canvas
-      cropImage(croppedCtx, image, points, canvasSize)
+      cropImage(croppedCtx, image, points, imgCanvasSize)
 
       if (isWarped) {
-        // If warped, apply perspective transform to the cropped image
-        previewCtx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height)
-        perspectiveTransform(previewCtx, croppedCanvasRef.current, points, canvasSize)
+        previewCtx.clearRect(0, 0, imgCanvasSize.width, imgCanvasSize.height)
+        perspectiveTransform(previewCtx, croppedCanvasRef.current, points, imgCanvasSize)
       } else {
-        // If not warped, just show the cropped image
-        previewCtx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height)
+        previewCtx.clearRect(0, 0, imgCanvasSize.width, imgCanvasSize.height)
         previewCtx.drawImage(croppedCanvasRef.current, 0, 0)
       }
     } else {
-      // If not cropped, just show the original image with the selection outline
-      previewCtx.drawImage(image, 0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height)
-      drawPath(previewCtx, points, canvasSize)
+      previewCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
+      drawPath(previewCtx, points, imgCanvasSize)
     }
-  }, [image, points, canvasSize, activeTab, isCropped, isWarped, isMobile, isDragging, dragPointIndex])
+  }, [image, points, canvasSize, imageSize, activeTab, isCropped, isWarped, isMobile, isDragging, dragPointIndex])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -245,9 +267,9 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
 
     // Check if we're clicking on a control point
     for (let i = 0; i < points.length; i++) {
-      const point = points[i]
-      const dx = x - point.x * canvasSize.width
-      const dy = y - point.y * canvasSize.height
+      const { px, py } = pointToCanvas(points[i], imageSize)
+      const dx = x - px
+      const dy = y - py
       const distance = Math.sqrt(dx * dx + dy * dy)
       const hitRadius = isMobile ? 15 : 10
 
@@ -269,25 +291,10 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     const y = e.clientY - rect.top
     
     if (isDragging && dragPointIndex !== null) {
-      // Update point position (normalized, no clamping — allows out-of-bounds)
-      updatePoint(dragPointIndex, {
-        x: x / canvasSize.width,
-        y: y / canvasSize.height,
-      })
-      
-      // Position the magnifier away from the cursor
-      let magX = x, magY = y;
-      
-      // Move the magnifier to a different position to avoid finger covering it
-      if (isMobile) {
-        // Position magnifier above the point on mobile to avoid finger obstruction
-        magY = Math.max(magnifierSize/2 + 10, y - 120);
-      } else {
-        // On desktop, position to the top right of the cursor
-        magX = Math.min(canvasSize.width - magnifierSize/2 - 10, x + 50);
-        magY = Math.max(magnifierSize/2 + 10, y - 50);
-      }
-      
+      // Convert padded-canvas pixel position to normalized image coordinates
+      const normalized = canvasToPoint(x, y, imageSize)
+      updatePoint(dragPointIndex, normalized)
+
       setMagnifierPosition({ x, y });
     }
   }
@@ -310,9 +317,9 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
 
     // Check if we're touching a control point
     for (let i = 0; i < points.length; i++) {
-      const point = points[i]
-      const dx = x - point.x * canvasSize.width
-      const dy = y - point.y * canvasSize.height
+      const { px, py } = pointToCanvas(points[i], imageSize)
+      const dx = x - px
+      const dy = y - py
       const distance = Math.sqrt(dx * dx + dy * dy)
       const hitRadius = 15 // Larger hit area for touch
 
@@ -335,15 +342,10 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     const x = touch.clientX - rect.left
     const y = touch.clientY - rect.top
 
-    // Update point position (normalized, no clamping — allows out-of-bounds)
-    updatePoint(dragPointIndex, {
-      x: x / canvasSize.width,
-      y: y / canvasSize.height,
-    })
-    
-    // Position the magnifier away from the touch point (above the finger)
-    const magY = Math.max(magnifierSize/2 + 10, y - 150);
-    
+    // Convert padded-canvas pixel position to normalized image coordinates
+    const normalized = canvasToPoint(x, y, imageSize)
+    updatePoint(dragPointIndex, normalized)
+
     setMagnifierPosition({ x, y });
   }
 
@@ -408,7 +410,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   };
 
   return (
-    <div className="relative border rounded-lg overflow-hidden bg-muted/20">
+    <div className="relative border rounded-lg bg-muted/20">
       <div className="relative">
         <div className="tabs flex border-b">
           <button
@@ -427,7 +429,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
         <div className="relative">
           <canvas
             ref={canvasRef}
-            className={`block w-full touch-none ${activeTab === "edit" ? "block" : "hidden"}`}
+            className={`block touch-none ${activeTab === "edit" ? "block" : "hidden"}`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -445,8 +447,8 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
             ref={previewCanvasRef}
             className={activeTab === "preview" ? "block" : "hidden"}
             style={{
-              width: canvasSize.width,
-              height: canvasSize.height,
+              width: imageSize.imageWidth,
+              height: imageSize.imageHeight,
             }}
           />
           <canvas
@@ -454,8 +456,8 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
             ref={croppedCanvasRef}
             className="hidden"
             style={{
-              width: canvasSize.width,
-              height: canvasSize.height,
+              width: imageSize.imageWidth,
+              height: imageSize.imageHeight,
             }}
           />
           <canvas
