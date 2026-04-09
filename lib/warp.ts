@@ -430,7 +430,7 @@ export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], qu
   const width = Math.round(outputSize.width)
   const height = Math.round(outputSize.height)
   
-  console.log("Output region:", minX, minY, width, height)
+  console.log("Output dimensions:", width, "x", height)
 
   // Safety check for dimensions
   if (width <= 0 || height <= 0 || width > 10000 || height > 10000) {
