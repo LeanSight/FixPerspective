@@ -30,7 +30,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const magnifierSize = 130; // Size of the magnifier in pixels
   const magnifierZoom = 3; // Zoom level
   
-  const { points, updatePoint, isCropped, isWarped } = useImageWarpStore()
+  const { points, updatePoint, isCorrected } = useImageWarpStore()
 
   // Load image
   useEffect(() => {
@@ -237,25 +237,18 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     // Preview/cropped canvases use image size (no padding)
     const imgCanvasSize = { width: imageSize.imageWidth, height: imageSize.imageHeight }
 
-    // Always draw the original image to the cropped canvas first
-    croppedCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
-
-    // Handle preview canvas based on crop and warp status
-    if (isCropped) {
+    // Handle preview canvas based on correction status
+    if (isCorrected) {
+      // Crop + perspective transform in one step
+      croppedCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
       cropImage(croppedCtx, image, points, imgCanvasSize)
-
-      if (isWarped) {
-        previewCtx.clearRect(0, 0, imgCanvasSize.width, imgCanvasSize.height)
-        perspectiveTransform(previewCtx, croppedCanvasRef.current, points, imgCanvasSize)
-      } else {
-        previewCtx.clearRect(0, 0, imgCanvasSize.width, imgCanvasSize.height)
-        previewCtx.drawImage(croppedCanvasRef.current, 0, 0)
-      }
+      previewCtx.clearRect(0, 0, imgCanvasSize.width, imgCanvasSize.height)
+      perspectiveTransform(previewCtx, croppedCanvasRef.current, points, imgCanvasSize)
     } else {
       previewCtx.drawImage(image, 0, 0, imgCanvasSize.width, imgCanvasSize.height)
       drawPath(previewCtx, points, imgCanvasSize)
     }
-  }, [image, points, canvasSize, imageSize, activeTab, isCropped, isWarped, isMobile, isDragging, dragPointIndex])
+  }, [image, points, canvasSize, imageSize, activeTab, isCorrected, isMobile, isDragging, dragPointIndex])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
