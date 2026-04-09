@@ -2,6 +2,29 @@
 
 import type { Point } from "./store"
 
+/**
+ * Computes the output rectangle dimensions from 4 sorted corner points
+ * using max Euclidean distances between opposite edges (PyImageSearch method).
+ * Corners must be ordered: [topLeft, topRight, bottomRight, bottomLeft].
+ */
+export function computeOutputSize(
+  corners: { x: number; y: number }[]
+): { width: number; height: number } {
+  const [tl, tr, br, bl] = corners
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
+
+  const widthTop = dist(tl, tr)
+  const widthBottom = dist(bl, br)
+  const heightLeft = dist(tl, bl)
+  const heightRight = dist(tr, br)
+
+  return {
+    width: Math.max(widthTop, widthBottom),
+    height: Math.max(heightLeft, heightRight),
+  }
+}
+
 // Draw the straight path connecting the control points
 export function drawPath(
   ctx: CanvasRenderingContext2D,
