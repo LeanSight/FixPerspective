@@ -221,10 +221,13 @@ export function perspectiveTransform(
   const matrix = perspectiveProjectionMatrix(rectPoints, quadPoints)
   
   // Map each pixel from destination to source
-  for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      // Skip pixels outside the destination rectangle
-      if (x < 0 || x >= canvasSize.width || y < 0 || y >= canvasSize.height) continue
+  // Clamp loop bounds to valid canvas pixels (OOB points may produce negative minX/minY)
+  const startY = Math.max(0, minY)
+  const endY = Math.min(maxY, canvasSize.height)
+  const startX = Math.max(0, minX)
+  const endX = Math.min(maxX, canvasSize.width)
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
       
       // Calculate source coordinates using the perspective matrix
       const { srcX, srcY } = applyPerspectiveTransform(x, y, matrix)
@@ -553,7 +556,7 @@ export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], qu
 }
 
 // Helper function to identify the corners of a quadrilateral
-function identifyCorners(points: { x: number; y: number }[]): { x: number; y: number }[] {
+export function identifyCorners(points: { x: number; y: number }[]): { x: number; y: number }[] {
   if (points.length !== 4) {
     return points;
   }
