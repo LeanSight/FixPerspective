@@ -3,10 +3,12 @@
 import type React from "react"
 
 import { useRef, useEffect, useState } from "react"
-import { useImageWarpStore } from "@/lib/store"
+import { useImageWarpStore, useLanguageStore } from "@/lib/store"
 import { drawPath, drawControlPoints, cropImage, perspectiveTransform } from "@/lib/warp"
 import { useMobile } from "@/hooks/use-mobile"
 import { pointToCanvas, canvasToPoint, getPaddedCanvasSize, findHitPoint, PADDING_RATIO } from "@/lib/canvas-utils"
+import { Slider } from "@/components/ui/slider"
+import { getTranslation } from "@/lib/translations"
 
 interface ImageCanvasProps {
   imageUrl: string
@@ -31,7 +33,9 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const magnifierSize = 130; // Size of the magnifier in pixels
   const magnifierZoom = 3; // Zoom level
   
-  const { points, updatePoint, isCorrected } = useImageWarpStore()
+  const { points, updatePoint, isCorrected, heightScale, setHeightScale } = useImageWarpStore()
+  const { language } = useLanguageStore()
+  const t = getTranslation(language)
 
   // Load image
   useEffect(() => {
@@ -246,12 +250,12 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
       croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
       cropImage(croppedCtx, image, points, fullResSize)
       previewCtx.clearRect(0, 0, fullResSize.width, fullResSize.height)
-      perspectiveTransform(previewCtx, croppedCanvasRef.current, points, fullResSize)
+      perspectiveTransform(previewCtx, croppedCanvasRef.current, points, fullResSize, heightScale)
     } else {
       previewCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
       drawPath(previewCtx, points, fullResSize)
     }
-  }, [image, points, canvasSize, imageSize, originalSize, activeTab, isCorrected, isMobile, isDragging, dragPointIndex])
+  }, [image, points, canvasSize, imageSize, originalSize, activeTab, isCorrected, heightScale, isMobile, isDragging, dragPointIndex])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -446,6 +450,21 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
             style={getMagnifierStyle() as React.CSSProperties}
           />
         </div>
+        {activeTab === "preview" && isCorrected && (
+          <div className="p-3 border-t bg-card">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium">{t.verticalAdjust}</label>
+              <span className="text-xs text-muted-foreground tabular-nums">{heightScale.toFixed(2)}x</span>
+            </div>
+            <Slider
+              value={[heightScale]}
+              min={0.5}
+              max={3.0}
+              step={0.05}
+              onValueChange={(value) => setHeightScale(value[0])}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

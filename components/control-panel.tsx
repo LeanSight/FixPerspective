@@ -16,7 +16,7 @@ interface ControlPanelProps {
 }
 
 export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPanelProps) {
-  const { resetPoints, points, isCorrected, setCorrected } = useImageWarpStore()
+  const { resetPoints, points, isCorrected, setCorrected, heightScale } = useImageWarpStore()
   const { language } = useLanguageStore()
   const [quality, setQuality] = useState(90)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
@@ -78,7 +78,7 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
                   scaleX.toFixed(2), "x", scaleY.toFixed(2))
       
       // Get the data URL of the high-resolution image with perspective correction
-      const dataUrl = exportWarpedImage(highResCanvas, scaledPoints, quality / 100)
+      const dataUrl = exportWarpedImage(highResCanvas, scaledPoints, quality / 100, heightScale)
       
       if (!dataUrl || dataUrl.length < 100) {
         console.error("Failed to generate valid data URL")

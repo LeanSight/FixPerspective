@@ -3,6 +3,20 @@
 import type { Point } from "./store"
 
 /**
+ * Scales (width, height) to fit within a canvas while preserving aspect ratio.
+ * Returns unchanged dimensions if the rect already fits.
+ */
+export function fitRectToCanvas(
+  width: number,
+  height: number,
+  canvasWidth: number,
+  canvasHeight: number
+): { width: number; height: number } {
+  const scale = Math.min(canvasWidth / width, canvasHeight / height, 1.0)
+  return { width: width * scale, height: height * scale }
+}
+
+/**
  * Computes the output rectangle dimensions from 4 sorted corner points
  * using max Euclidean distances between opposite edges (PyImageSearch method).
  * Corners must be ordered: [topLeft, topRight, bottomRight, bottomLeft].
@@ -52,7 +66,8 @@ export function lineIntersect(
 export function computeRealOutputSize(
   corners: { x: number; y: number }[],
   imageWidth: number,
-  imageHeight: number
+  imageHeight: number,
+  heightScale = 1.0
 ): { width: number; height: number } {
   const [tl, tr, br, bl] = corners
   const dist2d = (a: { x: number; y: number }, b: { x: number; y: number }) =>
@@ -61,7 +76,10 @@ export function computeRealOutputSize(
   // Vanishing point of vertical edges (left/right sides converge here)
   const vv = lineIntersect(tl, bl, tr, br)
 
-  if (!vv) return computeOutputSize(corners) // parallel sides → Euclidean is fine
+  if (!vv) {
+    const fallback = computeOutputSize(corners)
+    return { width: fallback.width, height: fallback.height * heightScale }
+  }
 
   // Euclidean edge lengths
   const eucWidthTop = dist2d(tl, tr)
@@ -167,11 +185,14 @@ export function computeRealOutputSize(
   const corrHeightRight = eucHeightRight * dMidBotVV / Math.sqrt(dBR_vv * dTR_vv)
   const realHeight = Math.max(corrHeightLeft, corrHeightRight)
 
-  if (realHeight <= 0) return computeOutputSize(corners)
+  if (realHeight <= 0) {
+    const fallback = computeOutputSize(corners)
+    return { width: fallback.width, height: fallback.height * heightScale }
+  }
 
   return {
     width: eucWidth,
-    height: realHeight,
+    height: realHeight * heightScale,
   }
 }
 
@@ -345,6 +366,7 @@ export function perspectiveTransform(
   sourceCanvas: HTMLCanvasElement,
   points: Point[],
   canvasSize: { width: number; height: number },
+  heightScale = 1.0,
 ) {
   // Clear the destination canvas
   ctx.clearRect(0, 0, canvasSize.width, canvasSize.height)
@@ -356,21 +378,25 @@ export function perspectiveTransform(
   }))
 
   // Sort corners and compute output size using VP-corrected dimensions
-  const sortedCorners = identifyCorners(quadPoints)
-  const { width: rectWidth, height: rectHeight } = computeRealOutputSize(sortedCorners, canvasSize.width, canvasSize.height)
+  const sortedQuad = identifyCorners(quadPoints)
+  const realSize = computeRealOutputSize(sortedQuad, canvasSize.width, canvasSize.height, heightScale)
+  // Fit within the preview canvas (OOB source points or large heightScale can produce rect > canvas).
+  const { width: rectWidth, height: rectHeight } = fitRectToCanvas(
+    realSize.width, realSize.height, canvasSize.width, canvasSize.height
+  )
 
-  // Bounding box for positioning within the canvas
-  const minX = Math.floor(Math.min(...quadPoints.map(p => p.x)))
-  const minY = Math.floor(Math.min(...quadPoints.map(p => p.y)))
-  const maxX = Math.ceil(minX + rectWidth)
-  const maxY = Math.ceil(minY + rectHeight)
+  // Anchor the destination rectangle at (0, 0) so OOB source points never clip the output.
+  const minX = 0
+  const minY = 0
+  const maxX = Math.ceil(rectWidth)
+  const maxY = Math.ceil(rectHeight)
 
   // Define the target rectangle corners (destination points)
   const rectPoints = [
-    { x: minX, y: minY },
-    { x: minX + rectWidth, y: minY },
-    { x: minX + rectWidth, y: minY + rectHeight },
-    { x: minX, y: minY + rectHeight }
+    { x: 0, y: 0 },
+    { x: rectWidth, y: 0 },
+    { x: rectWidth, y: rectHeight },
+    { x: 0, y: rectHeight }
   ]
   
   // We'll use the built-in canvas transformation for better results
@@ -565,9 +591,9 @@ function solveLinearSystem(A: number[][], b: number[]): number[] {
 }
 
 // Export the warped image to a rectangular output with preserved quality
-export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], quality = 0.9): string {
+export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], quality = 0.9, heightScale = 1.0): string {
   console.log("Starting export with canvas dimensions:", canvas.width, "x", canvas.height)
-  
+
   // Convert normalized points to canvas coordinates
   const sourcePoints = points.map((point) => ({
     x: point.x * canvas.width,
@@ -576,7 +602,7 @@ export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], qu
 
   // Sort corners and compute output size using VP-corrected dimensions
   const sortedCorners = identifyCorners(sourcePoints)
-  const outputSize = computeRealOutputSize(sortedCorners, canvas.width, canvas.height)
+  const outputSize = computeRealOutputSize(sortedCorners, canvas.width, canvas.height, heightScale)
   const width = Math.round(outputSize.width)
   const height = Math.round(outputSize.height)
   

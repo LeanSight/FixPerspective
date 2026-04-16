@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest"
 // We need to test identifyCorners and the perspective transform with OOB points.
 // identifyCorners is not exported, so we test it indirectly via a re-export or
 // we extract and test the core logic. For now, let's export it for testing.
-import { identifyCorners, computeOutputSize, computeRealOutputSize, lineIntersect } from "@/lib/warp"
+import { identifyCorners, computeOutputSize, computeRealOutputSize, lineIntersect, fitRectToCanvas } from "@/lib/warp"
 
 describe("warp: puntos fuera de rango", () => {
   // --- AT: identifyCorners funciona con coordenadas negativas ---
@@ -186,5 +186,77 @@ describe("computeRealOutputSize", () => {
 
     // El ratio real debe ser menor (mas alto) que el Euclidiano
     expect(realRatio).toBeLessThan(eucRatio)
+  })
+})
+
+describe("fitRectToCanvas", () => {
+  // --- AT: el rect no debe exceder los limites del canvas ---
+  it("AT: rect mas ancho que el canvas se reduce preservando aspect ratio", () => {
+    // rect 1000x600, canvas 800x600 → scale = 800/1000 = 0.8
+    const result = fitRectToCanvas(1000, 600, 800, 600)
+    expect(result.width).toBeCloseTo(800)
+    expect(result.height).toBeCloseTo(480) // 600 * 0.8
+  })
+
+  it("rect que cabe en canvas no se modifica", () => {
+    const result = fitRectToCanvas(500, 400, 800, 600)
+    expect(result.width).toBeCloseTo(500)
+    expect(result.height).toBeCloseTo(400)
+  })
+
+  it("rect mas alto que el canvas se reduce preservando aspect ratio", () => {
+    // rect 400x1000, canvas 800x600 → scale = 600/1000 = 0.6
+    const result = fitRectToCanvas(400, 1000, 800, 600)
+    expect(result.width).toBeCloseTo(240) // 400 * 0.6
+    expect(result.height).toBeCloseTo(600)
+  })
+
+  it("rect mas grande en ambas dimensiones usa el menor ratio", () => {
+    // rect 1000x900, canvas 800x600 → scales: 0.8 (w) vs 0.666 (h) → 0.666
+    const result = fitRectToCanvas(1000, 900, 800, 600)
+    expect(result.width).toBeCloseTo(1000 * (600 / 900))
+    expect(result.height).toBeCloseTo(600)
+  })
+
+  it("rect con heightScale alto (height excede) se reduce proporcionalmente", () => {
+    const result = fitRectToCanvas(700, 1800, 800, 600)
+    const scale = 600 / 1800
+    expect(result.width).toBeCloseTo(700 * scale)
+    expect(result.height).toBeCloseTo(600)
+  })
+})
+
+describe("computeRealOutputSize con heightScale", () => {
+  const corners = [
+    { x: 100, y: 100 },
+    { x: 700, y: 100 },
+    { x: 700, y: 500 },
+    { x: 100, y: 500 },
+  ]
+
+  // --- AT: heightScale multiplica el height del output ---
+  it("AT: heightScale=2 produce height 2x comparado con heightScale=1", () => {
+    const base = computeRealOutputSize(corners, 800, 600)
+    const doubled = computeRealOutputSize(corners, 800, 600, 2.0)
+    expect(doubled.height).toBeCloseTo(base.height * 2, 5)
+  })
+
+  it("heightScale=1 (default explicito) no cambia el height", () => {
+    const base = computeRealOutputSize(corners, 800, 600)
+    const explicit = computeRealOutputSize(corners, 800, 600, 1.0)
+    expect(explicit.height).toBeCloseTo(base.height, 5)
+    expect(explicit.width).toBeCloseTo(base.width, 5)
+  })
+
+  it("heightScale=0.5 reduce el height a la mitad", () => {
+    const base = computeRealOutputSize(corners, 800, 600)
+    const halved = computeRealOutputSize(corners, 800, 600, 0.5)
+    expect(halved.height).toBeCloseTo(base.height * 0.5, 5)
+  })
+
+  it("heightScale no afecta el width", () => {
+    const base = computeRealOutputSize(corners, 800, 600)
+    const scaled = computeRealOutputSize(corners, 800, 600, 2.5)
+    expect(scaled.width).toBeCloseTo(base.width, 5)
   })
 })

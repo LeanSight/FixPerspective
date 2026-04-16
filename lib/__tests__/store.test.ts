@@ -84,3 +84,27 @@ describe("store: isCorrected flag y auto-reset", () => {
     expect(useImageWarpStore.getState().isCorrected).toBe(false)
   })
 })
+
+describe("store: heightScale para ajuste vertical", () => {
+  beforeEach(() => {
+    useImageWarpStore.getState().resetPoints()
+  })
+
+  // --- AT: el usuario puede ajustar el heightScale para expandir verticalmente ---
+  it("AT: setHeightScale(1.5) se refleja en el estado", () => {
+    const store = useImageWarpStore.getState()
+    store.setHeightScale(1.5)
+    expect(useImageWarpStore.getState().heightScale).toBe(1.5)
+  })
+
+  it("heightScale inicia en 1.0", () => {
+    expect(useImageWarpStore.getState().heightScale).toBe(1.0)
+  })
+
+  it("resetPoints resetea heightScale a 1.0", () => {
+    const store = useImageWarpStore.getState()
+    store.setHeightScale(2.0)
+    store.resetPoints()
+    expect(useImageWarpStore.getState().heightScale).toBe(1.0)
+  })
+})
