@@ -84,6 +84,57 @@ describe("ImageWarpEditor: cambiar imagen vuelve a la UI inicial", () => {
   })
 })
 
+describe("ImageWarpEditor: cargar desde Google Photos shared URL", () => {
+  // AT: pegar un photos.app.goo.gl se resuelve via /api/resolve-photo y carga la imagen
+  it("AT: URL de Google Photos se resuelve via el API route y carga la imagen", async () => {
+    const fakeBlob = new Blob(["fake"], { type: "image/jpeg" })
+    const originalFetch = global.fetch
+    global.fetch = vi.fn(async (input: any) => {
+      const url = typeof input === "string" ? input : input.toString()
+      if (url.startsWith("/api/resolve-photo")) {
+        return {
+          ok: true,
+          json: async () => ({ directUrl: "https://lh3.googleusercontent.com/pw/abc=w800" }),
+        } as any
+      }
+      if (url.includes("lh3.googleusercontent.com")) {
+        return {
+          ok: true,
+          blob: async () => fakeBlob,
+        } as any
+      }
+      return { ok: false, status: 404, blob: async () => new Blob() } as any
+    }) as any
+
+    try {
+      const { container } = render(<ImageWarpEditor />)
+      const findCanvas = () => container.querySelector('[data-testid="image-canvas"]')
+
+      expect(findCanvas()).toBeNull()
+
+      const urlInput = container.querySelector('input[type="url"]') as HTMLInputElement
+      fireEvent.change(urlInput, { target: { value: "https://photos.app.goo.gl/MzzHxy41nFbax4da8" } })
+
+      const buttons = Array.from(container.querySelectorAll("button"))
+      const loadBtn = buttons.find((b) =>
+        /cargar url|load url/i.test(b.textContent || "")
+      ) as HTMLButtonElement
+      fireEvent.click(loadBtn)
+
+      // Esperar a que el fetch encadenado termine
+      await new Promise((r) => setTimeout(r, 20))
+
+      expect(findCanvas()).not.toBeNull()
+      // Verificar que se llamaron ambos endpoints en orden
+      const calls = (global.fetch as any).mock.calls.map((c: any[]) => c[0])
+      expect(calls.some((u: string) => u.startsWith("/api/resolve-photo"))).toBe(true)
+      expect(calls.some((u: string) => u.includes("lh3.googleusercontent.com"))).toBe(true)
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+})
+
 describe("ImageWarpEditor: cargar desde URL", () => {
   // AT: pegar URL + click en "Cargar URL" carga la imagen en el editor
   it("AT: cargar por URL activa el editor", async () => {

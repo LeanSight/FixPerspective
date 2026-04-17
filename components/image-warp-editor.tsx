@@ -89,14 +89,32 @@ export default function ImageWarpEditor() {
     }
   }
 
+  const isGooglePhotosUrl = (url: string): boolean => {
+    try {
+      const host = new URL(url).host
+      return host === "photos.app.goo.gl" || host === "photos.google.com" || host === "goo.gl"
+    } catch {
+      return false
+    }
+  }
+
   const loadFromUrl = async (url: string) => {
     setUrlError(null)
     try {
-      const response = await fetch(url)
+      let directUrl = url
+      if (isGooglePhotosUrl(url)) {
+        const resolve = await fetch(`/api/resolve-photo?url=${encodeURIComponent(url)}`)
+        if (!resolve.ok) throw new Error(`resolve ${resolve.status}`)
+        const body = await resolve.json()
+        if (!body?.directUrl) throw new Error("no directUrl in resolve response")
+        directUrl = body.directUrl
+      }
+
+      const response = await fetch(directUrl)
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const blob = await response.blob()
       if (!blob.type.startsWith("image/")) throw new Error("not an image")
-      const derivedName = url.split("/").pop()?.split("?")[0] || "image"
+      const derivedName = directUrl.split("/").pop()?.split("?")[0] || "image"
       const file = new File([blob], derivedName, { type: blob.type })
       processFile(file)
     } catch (err) {
