@@ -15,6 +15,7 @@ export default function ImageWarpEditor() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string>("image")
+  const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { resetPoints } = useImageWarpStore()
   const { language } = useLanguageStore()
@@ -54,6 +55,25 @@ export default function ImageWarpEditor() {
     }
   }
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith("image/")) {
+      processFile(file)
+    }
+  }
+
   // Clean up object URLs on unmount
   useEffect(() => {
     return () => {
@@ -66,7 +86,14 @@ export default function ImageWarpEditor() {
   return (
     <div className="grid gap-6">
       <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-      <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-6 md:p-12 bg-card">
+      <div
+        className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 md:p-12 bg-card transition-colors ${
+          isDragOver ? "border-primary bg-primary/5" : "border-border"
+        }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {!imageUrl ? (
           <div className="text-center">
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
