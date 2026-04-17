@@ -44,13 +44,6 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
       }
 
       console.log("Starting high-quality export. Original dimensions:", image.width, "x", image.height)
-      
-      // Get the preview canvas for reference (to check parameters, but not for pixel data)
-      const previewCanvas = document.getElementById("preview-canvas") as HTMLCanvasElement
-      if (!previewCanvas) {
-        console.error("Preview canvas not found")
-        return
-      }
 
       // Create a high-resolution canvas for processing
       const highResCanvas = document.createElement("canvas")
@@ -65,33 +58,13 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
       // Draw the original image at full resolution
       highResCtx.drawImage(image, 0, 0, image.width, image.height)
 
-      // Scale the control points to match the original image dimensions
-      const scaleX = image.width / previewCanvas.width
-      const scaleY = image.height / previewCanvas.height
-      
-      const scaledPoints = points.map(point => ({
-        x: point.x,  // Keep normalized coordinates (0-1)
-        y: point.y
-      }))
-
-      console.log("Using scaled points for high-res export. Scale factors:", 
-                  scaleX.toFixed(2), "x", scaleY.toFixed(2))
-      
       // Get the data URL of the high-resolution image with perspective correction
-      const dataUrl = exportWarpedImage(highResCanvas, scaledPoints, quality / 100, heightScale)
-      
+      const dataUrl = exportWarpedImage(highResCanvas, points, quality / 100, heightScale)
+
       if (!dataUrl || dataUrl.length < 100) {
         console.error("Failed to generate valid data URL")
         return
       }
-
-      // Calculate approximate output dimensions
-      const minX = Math.min(...points.map(p => p.x))
-      const minY = Math.min(...points.map(p => p.y))
-      const maxX = Math.max(...points.map(p => p.x))
-      const maxY = Math.max(...points.map(p => p.y))
-      const outputWidth = Math.round((maxX - minX) * image.width)
-      const outputHeight = Math.round((maxY - minY) * image.height)
 
       // Create a temporary link to download the image
       const link = document.createElement("a")
