@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import { useImageWarpStore, useLanguageStore } from "@/lib/store"
-import { Download, RotateCcw, Check, Move } from "lucide-react"
+import { Download, RotateCcw } from "lucide-react"
 import { exportWarpedImage } from "@/lib/warp"
 import { useMobile } from "@/hooks/use-mobile"
 import { getTranslation } from "@/lib/translations"
@@ -16,7 +16,7 @@ interface ControlPanelProps {
 }
 
 export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPanelProps) {
-  const { resetPoints, points, isCorrected, setCorrected, heightScale } = useImageWarpStore()
+  const { resetPoints, points, heightScale } = useImageWarpStore()
   const { language } = useLanguageStore()
   const [quality, setQuality] = useState(90)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
@@ -88,10 +88,6 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
     }
   }
 
-  const toggleCorrection = () => {
-    setCorrected(!isCorrected)
-  }
-
   return (
     <div className="bg-card border rounded-lg p-4">
       <Tabs defaultValue="warp">
@@ -105,26 +101,6 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
             <Button variant="outline" className="w-full" onClick={resetPoints}>
               <RotateCcw className="h-4 w-4 mr-2" />
               {t.resetPoints}
-            </Button>
-          </div>
-
-          <div className="pt-2">
-            <Button
-              variant={isCorrected ? "default" : "outline"}
-              className="w-full"
-              onClick={toggleCorrection}
-            >
-              {isCorrected ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  {t.perspectiveCorrected}
-                </>
-              ) : (
-                <>
-                  <Move className="h-4 w-4 mr-2" />
-                  {t.applyPerspective}
-                </>
-              )}
             </Button>
           </div>
 
@@ -169,11 +145,7 @@ export default function ControlPanel({ imageUrl, fileName = "image" }: ControlPa
           </div>
 
           <div className="pt-4 text-xs text-muted-foreground">
-            <p>
-              {isCorrected
-                ? t.perspectiveExportDesc
-                : t.requireCropDesc}
-            </p>
+            <p>{t.perspectiveExportDesc}</p>
           </div>
         </TabsContent>
       </Tabs>
