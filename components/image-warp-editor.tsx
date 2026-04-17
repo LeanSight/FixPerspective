@@ -12,7 +12,6 @@ import { useMobile } from "@/hooks/use-mobile"
 import { getTranslation } from "@/lib/translations"
 
 export default function ImageWarpEditor() {
-  const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string>("image")
   const [isDragOver, setIsDragOver] = useState(false)
@@ -29,7 +28,6 @@ export default function ImageWarpEditor() {
       URL.revokeObjectURL(imageUrl)
     }
 
-    setImageFile(file)
     const url = URL.createObjectURL(file)
     setImageUrl(url)
 
