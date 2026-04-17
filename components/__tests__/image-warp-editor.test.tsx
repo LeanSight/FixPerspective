@@ -85,21 +85,14 @@ describe("ImageWarpEditor: cambiar imagen vuelve a la UI inicial", () => {
 })
 
 describe("ImageWarpEditor: cargar desde Google Drive shared URL", () => {
-  // AT: pegar un drive.google.com/file/d/ID/view se resuelve via API y carga la imagen
-  it("AT: URL de Google Drive se resuelve via API route y carga la imagen", async () => {
+  // AT: pegar un drive.google.com/file/d/ID/view pasa por el proxy unico
+  //     (sin segundo fetch a drive.google.com desde el browser: evita CORS)
+  it("AT: URL de Google Drive se descarga via un solo proxy server-side", async () => {
     const fakeBlob = new Blob(["fake"], { type: "image/jpeg" })
     const originalFetch = global.fetch
     global.fetch = vi.fn(async (input: any) => {
       const url = typeof input === "string" ? input : input.toString()
       if (url.startsWith("/api/resolve-photo")) {
-        return {
-          ok: true,
-          json: async () => ({
-            directUrl: "https://drive.google.com/uc?export=view&id=ABCDEF",
-          }),
-        } as any
-      }
-      if (url.includes("drive.google.com/uc")) {
         return { ok: true, blob: async () => fakeBlob } as any
       }
       return { ok: false, status: 404, blob: async () => new Blob() } as any
@@ -124,8 +117,10 @@ describe("ImageWarpEditor: cargar desde Google Drive shared URL", () => {
 
       expect(findCanvas()).not.toBeNull()
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => c[0])
-      expect(calls.some((u: string) => u.startsWith("/api/resolve-photo"))).toBe(true)
-      expect(calls.some((u: string) => u.includes("drive.google.com/uc"))).toBe(true)
+      // Unico hit al proxy: el browser nunca toca drive.google.com directo
+      const proxyCalls = calls.filter((u: string) => u.startsWith("/api/resolve-photo"))
+      expect(proxyCalls.length).toBe(1)
+      expect(calls.some((u: string) => u.includes("drive.google.com") && !u.startsWith("/api/"))).toBe(false)
     } finally {
       global.fetch = originalFetch
     }
@@ -133,23 +128,14 @@ describe("ImageWarpEditor: cargar desde Google Drive shared URL", () => {
 })
 
 describe("ImageWarpEditor: cargar desde Google Photos shared URL", () => {
-  // AT: pegar un photos.app.goo.gl se resuelve via /api/resolve-photo y carga la imagen
-  it("AT: URL de Google Photos se resuelve via el API route y carga la imagen", async () => {
+  // AT: pegar un photos.app.goo.gl pasa por el proxy unico sin tocar googleusercontent desde el browser
+  it("AT: URL de Google Photos se descarga via un solo proxy server-side", async () => {
     const fakeBlob = new Blob(["fake"], { type: "image/jpeg" })
     const originalFetch = global.fetch
     global.fetch = vi.fn(async (input: any) => {
       const url = typeof input === "string" ? input : input.toString()
       if (url.startsWith("/api/resolve-photo")) {
-        return {
-          ok: true,
-          json: async () => ({ directUrl: "https://lh3.googleusercontent.com/pw/abc=w800" }),
-        } as any
-      }
-      if (url.includes("lh3.googleusercontent.com")) {
-        return {
-          ok: true,
-          blob: async () => fakeBlob,
-        } as any
+        return { ok: true, blob: async () => fakeBlob } as any
       }
       return { ok: false, status: 404, blob: async () => new Blob() } as any
     }) as any
@@ -157,7 +143,6 @@ describe("ImageWarpEditor: cargar desde Google Photos shared URL", () => {
     try {
       const { container } = render(<ImageWarpEditor />)
       const findCanvas = () => container.querySelector('[data-testid="image-canvas"]')
-
       expect(findCanvas()).toBeNull()
 
       const urlInput = container.querySelector('input[type="url"]') as HTMLInputElement
@@ -169,14 +154,14 @@ describe("ImageWarpEditor: cargar desde Google Photos shared URL", () => {
       ) as HTMLButtonElement
       fireEvent.click(loadBtn)
 
-      // Esperar a que el fetch encadenado termine
       await new Promise((r) => setTimeout(r, 20))
 
       expect(findCanvas()).not.toBeNull()
-      // Verificar que se llamaron ambos endpoints en orden
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => c[0])
-      expect(calls.some((u: string) => u.startsWith("/api/resolve-photo"))).toBe(true)
-      expect(calls.some((u: string) => u.includes("lh3.googleusercontent.com"))).toBe(true)
+      const proxyCalls = calls.filter((u: string) => u.startsWith("/api/resolve-photo"))
+      expect(proxyCalls.length).toBe(1)
+      // El browser jamas hace fetch directo a lh3 (evita el CORS faltante)
+      expect(calls.some((u: string) => u.includes("lh3.googleusercontent.com"))).toBe(false)
     } finally {
       global.fetch = originalFetch
     }

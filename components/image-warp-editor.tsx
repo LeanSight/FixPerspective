@@ -89,14 +89,15 @@ export default function ImageWarpEditor() {
     }
   }
 
-  const needsServerResolve = (url: string): boolean => {
+  const needsServerProxy = (url: string): boolean => {
     try {
       const host = new URL(url).host
       return (
         host === "photos.app.goo.gl" ||
         host === "photos.google.com" ||
         host === "goo.gl" ||
-        host === "drive.google.com"
+        host === "drive.google.com" ||
+        host === "lh3.googleusercontent.com"
       )
     } catch {
       return false
@@ -106,20 +107,16 @@ export default function ImageWarpEditor() {
   const loadFromUrl = async (url: string) => {
     setUrlError(null)
     try {
-      let directUrl = url
-      if (needsServerResolve(url)) {
-        const resolve = await fetch(`/api/resolve-photo?url=${encodeURIComponent(url)}`)
-        if (!resolve.ok) throw new Error(`resolve ${resolve.status}`)
-        const body = await resolve.json()
-        if (!body?.directUrl) throw new Error("no directUrl in resolve response")
-        directUrl = body.directUrl
-      }
-
-      const response = await fetch(directUrl)
+      // Google Photos / Drive image URLs omit Access-Control-Allow-Origin,
+      // so a browser fetch is blocked. Same-origin proxy bypasses that.
+      const fetchUrl = needsServerProxy(url)
+        ? `/api/resolve-photo?url=${encodeURIComponent(url)}`
+        : url
+      const response = await fetch(fetchUrl)
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const blob = await response.blob()
       if (!blob.type.startsWith("image/")) throw new Error("not an image")
-      const derivedName = directUrl.split("/").pop()?.split("?")[0] || "image"
+      const derivedName = url.split("/").pop()?.split("?")[0] || "image"
       const file = new File([blob], derivedName, { type: blob.type })
       processFile(file)
     } catch (err) {
