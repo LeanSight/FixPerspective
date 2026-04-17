@@ -89,10 +89,15 @@ export default function ImageWarpEditor() {
     }
   }
 
-  const isGooglePhotosUrl = (url: string): boolean => {
+  const needsServerResolve = (url: string): boolean => {
     try {
       const host = new URL(url).host
-      return host === "photos.app.goo.gl" || host === "photos.google.com" || host === "goo.gl"
+      return (
+        host === "photos.app.goo.gl" ||
+        host === "photos.google.com" ||
+        host === "goo.gl" ||
+        host === "drive.google.com"
+      )
     } catch {
       return false
     }
@@ -102,7 +107,7 @@ export default function ImageWarpEditor() {
     setUrlError(null)
     try {
       let directUrl = url
-      if (isGooglePhotosUrl(url)) {
+      if (needsServerResolve(url)) {
         const resolve = await fetch(`/api/resolve-photo?url=${encodeURIComponent(url)}`)
         if (!resolve.ok) throw new Error(`resolve ${resolve.status}`)
         const body = await resolve.json()

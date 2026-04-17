@@ -4,7 +4,22 @@ const ALLOWED_HOSTS = new Set([
   "photos.app.goo.gl",
   "photos.google.com",
   "goo.gl",
+  "drive.google.com",
 ])
+
+/**
+ * Extracts the Google Drive file ID from any of the common share URL shapes:
+ *   - drive.google.com/file/d/ID/view
+ *   - drive.google.com/open?id=ID
+ *   - drive.google.com/uc?id=ID
+ */
+function extractDriveFileId(parsed: URL): string | null {
+  const filePath = parsed.pathname.match(/\/file\/d\/([^/]+)/)
+  if (filePath) return filePath[1]
+  const q = parsed.searchParams.get("id")
+  if (q) return q
+  return null
+}
 
 /**
  * Resolves a Google Photos public share URL to the direct lh3.googleusercontent.com
@@ -28,6 +43,17 @@ export async function GET(req: NextRequest) {
       { error: `host not allowed: ${parsed.host}` },
       { status: 400 }
     )
+  }
+
+  // Google Drive: no scraping needed — transform share URL to the "uc" endpoint
+  // which streams the raw file. Works for public images; CORS is consistent.
+  if (parsed.host === "drive.google.com") {
+    const fileId = extractDriveFileId(parsed)
+    if (!fileId) {
+      return NextResponse.json({ error: "could not parse drive file id" }, { status: 400 })
+    }
+    const directUrl = `https://drive.google.com/uc?export=view&id=${fileId}`
+    return NextResponse.json({ directUrl })
   }
 
   try {
