@@ -55,6 +55,35 @@ describe("ImageWarpEditor: drag and drop", () => {
   })
 })
 
+describe("ImageWarpEditor: cambiar imagen vuelve a la UI inicial", () => {
+  // AT: al clickear "Cambiar Imagen" el editor vuelve al estado de upload
+  it("AT: click en 'Cambiar Imagen' regresa a la UI de upload", () => {
+    const { container } = render(<ImageWarpEditor />)
+    const findCanvas = () => container.querySelector('[data-testid="image-canvas"]')
+    const findUrlInput = () => container.querySelector('input[type="url"]')
+
+    // Cargar una imagen por drop para llegar al estado de edicion
+    const dropzone = container.querySelector(".border-dashed") as HTMLElement
+    const file = new File(["fake"], "test.jpg", { type: "image/jpeg" })
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    expect(findCanvas()).not.toBeNull()
+    expect(findUrlInput()).toBeNull() // La UI de upload no se muestra mientras hay imagen
+
+    // Click en "Cambiar Imagen" (scoped al container del render actual)
+    const buttons = Array.from(container.querySelectorAll("button"))
+    const changeBtn = buttons.find((b) =>
+      /cambiar imagen|change image/i.test(b.textContent || "")
+    ) as HTMLButtonElement
+    expect(changeBtn).toBeDefined()
+    fireEvent.click(changeBtn)
+
+    // Postcondition: volvimos a la UI de upload
+    expect(findCanvas()).toBeNull()
+    expect(findUrlInput()).not.toBeNull()
+  })
+})
+
 describe("ImageWarpEditor: cargar desde URL", () => {
   // AT: pegar URL + click en "Cargar URL" carga la imagen en el editor
   it("AT: cargar por URL activa el editor", async () => {
@@ -76,9 +105,13 @@ describe("ImageWarpEditor: cargar desde URL", () => {
       const urlInput = container.querySelector('input[type="url"]') as HTMLInputElement
       expect(urlInput).not.toBeNull()
 
-      // Cambiar el valor y disparar el boton "Cargar URL"
+      // Cambiar el valor y disparar el boton "Cargar URL" (scoped al container actual)
       fireEvent.change(urlInput, { target: { value: "https://example.com/pizarra.jpg" } })
-      const loadBtn = screen.getByRole("button", { name: /cargar url|load url/i })
+      const buttons = Array.from(container.querySelectorAll("button"))
+      const loadBtn = buttons.find((b) =>
+        /cargar url|load url/i.test(b.textContent || "")
+      ) as HTMLButtonElement
+      expect(loadBtn).toBeDefined()
       fireEvent.click(loadBtn)
 
       // Esperar a que el fetch resuelva

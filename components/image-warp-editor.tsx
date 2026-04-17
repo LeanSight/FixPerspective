@@ -56,6 +56,20 @@ export default function ImageWarpEditor() {
     }
   }
 
+  const clearImage = () => {
+    if (imageUrl) {
+      URL.revokeObjectURL(imageUrl)
+    }
+    setImageUrl(null)
+    setFileName("image")
+    setUrlInput("")
+    setUrlError(null)
+    resetPoints()
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragOver(true)
@@ -142,7 +156,7 @@ export default function ImageWarpEditor() {
           <div className="w-full">
             <div className="flex justify-between mb-4">
               <h2 className="text-xl font-semibold">{t.editImage}</h2>
-              <Button variant="outline" onClick={triggerFileInput}>
+              <Button variant="outline" onClick={clearImage}>
                 {t.changeImage}
               </Button>
             </div>
