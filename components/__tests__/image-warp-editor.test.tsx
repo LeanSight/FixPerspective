@@ -54,3 +54,40 @@ describe("ImageWarpEditor: drag and drop", () => {
     expect(findCanvas()).not.toBeNull()
   })
 })
+
+describe("ImageWarpEditor: cargar desde URL", () => {
+  // AT: pegar URL + click en "Cargar URL" carga la imagen en el editor
+  it("AT: cargar por URL activa el editor", async () => {
+    // Mock de fetch para devolver un blob tipo imagen
+    const fakeBlob = new Blob(["fake"], { type: "image/jpeg" })
+    const originalFetch = global.fetch
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      blob: async () => fakeBlob,
+    })) as any
+
+    try {
+      const { container } = render(<ImageWarpEditor />)
+      const findCanvas = () => container.querySelector('[data-testid="image-canvas"]')
+
+      expect(findCanvas()).toBeNull()
+
+      // El input de URL debe existir en el DOM
+      const urlInput = container.querySelector('input[type="url"]') as HTMLInputElement
+      expect(urlInput).not.toBeNull()
+
+      // Cambiar el valor y disparar el boton "Cargar URL"
+      fireEvent.change(urlInput, { target: { value: "https://example.com/pizarra.jpg" } })
+      const loadBtn = screen.getByRole("button", { name: /cargar url|load url/i })
+      fireEvent.click(loadBtn)
+
+      // Esperar a que el fetch resuelva
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Postcondition: la imagen se cargo y ImageCanvas aparece
+      expect(findCanvas()).not.toBeNull()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+})

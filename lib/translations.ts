@@ -8,6 +8,9 @@ export type Translation = {
   uploadDescription: string;
   selectImage: string;
   changeImage: string;
+  imageUrlPlaceholder: string;
+  loadUrl: string;
+  urlLoadError: string;
   editImage: string;
   
   // Tabs
@@ -52,6 +55,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG, JPG, WEBP up to 10MB",
     selectImage: "Select Image",
     changeImage: "Change Image",
+    imageUrlPlaceholder: "Paste image URL",
+    loadUrl: "Load URL",
+    urlLoadError: "Could not load image from URL",
     editImage: "Edit Image",
     
     // Tabs
@@ -95,6 +101,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG, JPG, WEBP hasta 10MB",
     selectImage: "Seleccionar Imagen",
     changeImage: "Cambiar Imagen",
+    imageUrlPlaceholder: "Pega la URL de la imagen",
+    loadUrl: "Cargar URL",
+    urlLoadError: "No se pudo cargar la imagen desde la URL",
     editImage: "Editar Imagen",
     
     // Tabs
@@ -138,6 +147,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG, JPG, WEBP jusqu'à 10MB",
     selectImage: "Sélectionner l'Image",
     changeImage: "Changer l'Image",
+    imageUrlPlaceholder: "Collez l'URL de l'image",
+    loadUrl: "Charger l'URL",
+    urlLoadError: "Impossible de charger l'image depuis l'URL",
     editImage: "Modifier l'Image",
     
     // Tabs
@@ -181,6 +193,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG, JPG, WEBP bis zu 10MB",
     selectImage: "Bild auswählen",
     changeImage: "Bild ändern",
+    imageUrlPlaceholder: "Bild-URL einfügen",
+    loadUrl: "URL laden",
+    urlLoadError: "Bild konnte nicht von der URL geladen werden",
     editImage: "Bild bearbeiten",
     
     // Tabs
@@ -224,6 +239,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "10MB'a kadar PNG, JPG, WEBP",
     selectImage: "Görüntü Seç",
     changeImage: "Görüntüyü Değiştir",
+    imageUrlPlaceholder: "Görüntü URL'sini yapıştırın",
+    loadUrl: "URL'yi Yükle",
+    urlLoadError: "Görüntü URL'den yüklenemedi",
     editImage: "Görüntüyü Düzenle",
     
     // Tabs
@@ -267,6 +285,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG, JPG, WEBP до 10МБ",
     selectImage: "Выбрать изображение",
     changeImage: "Изменить изображение",
+    imageUrlPlaceholder: "Вставьте URL изображения",
+    loadUrl: "Загрузить URL",
+    urlLoadError: "Не удалось загрузить изображение по URL",
     editImage: "Редактировать изображение",
     
     // Tabs
@@ -310,6 +331,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG、JPG、WEBP（最大10MB）",
     selectImage: "画像を選択",
     changeImage: "画像を変更",
+    imageUrlPlaceholder: "画像URLを貼り付け",
+    loadUrl: "URLを読み込む",
+    urlLoadError: "URLから画像を読み込めませんでした",
     editImage: "画像を編集",
     
     // Tabs
@@ -353,6 +377,9 @@ export const translations: Record<string, Translation> = {
     uploadDescription: "PNG、JPG、WEBP，最大10MB",
     selectImage: "选择图像",
     changeImage: "更换图像",
+    imageUrlPlaceholder: "粘贴图像URL",
+    loadUrl: "加载URL",
+    urlLoadError: "无法从URL加载图像",
     editImage: "编辑图像",
     
     // Tabs

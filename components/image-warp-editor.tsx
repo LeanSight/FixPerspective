@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Upload } from "lucide-react"
 import ImageCanvas from "./image-canvas"
 import ControlPanel from "./control-panel"
@@ -15,6 +16,8 @@ export default function ImageWarpEditor() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string>("image")
   const [isDragOver, setIsDragOver] = useState(false)
+  const [urlInput, setUrlInput] = useState("")
+  const [urlError, setUrlError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { resetPoints } = useImageWarpStore()
   const { language } = useLanguageStore()
@@ -72,6 +75,21 @@ export default function ImageWarpEditor() {
     }
   }
 
+  const loadFromUrl = async (url: string) => {
+    setUrlError(null)
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      if (!blob.type.startsWith("image/")) throw new Error("not an image")
+      const derivedName = url.split("/").pop()?.split("?")[0] || "image"
+      const file = new File([blob], derivedName, { type: blob.type })
+      processFile(file)
+    } catch (err) {
+      setUrlError(t.urlLoadError)
+    }
+  }
+
   // Clean up object URLs on unmount
   useEffect(() => {
     return () => {
@@ -93,13 +111,32 @@ export default function ImageWarpEditor() {
         onDrop={handleDrop}
       >
         {!imageUrl ? (
-          <div className="text-center">
+          <div className="text-center w-full max-w-md">
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-2 text-sm font-semibold text-foreground">{t.uploadTitle}</h3>
             <p className="mt-1 text-xs text-muted-foreground">{t.uploadDescription}</p>
             <div className="mt-6">
               <Button onClick={triggerFileInput}>{t.selectImage}</Button>
             </div>
+            <div className="mt-4 flex gap-2">
+              <Input
+                type="url"
+                placeholder={t.imageUrlPlaceholder}
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && urlInput.trim()) loadFromUrl(urlInput.trim())
+                }}
+              />
+              <Button
+                variant="outline"
+                disabled={!urlInput.trim()}
+                onClick={() => loadFromUrl(urlInput.trim())}
+              >
+                {t.loadUrl}
+              </Button>
+            </div>
+            {urlError && <p className="mt-2 text-xs text-destructive">{urlError}</p>}
           </div>
         ) : (
           <div className="w-full">
