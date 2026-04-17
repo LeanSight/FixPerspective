@@ -168,6 +168,54 @@ describe("ImageWarpEditor: cargar desde Google Photos shared URL", () => {
   })
 })
 
+describe("ImageWarpEditor: indicador de carga durante fetch de URL", () => {
+  // AT: durante el fetch de URL, el boton muestra un spinner
+  it("AT: el spinner aparece mientras el fetch esta en vuelo y desaparece al terminar", async () => {
+    const fakeBlob = new Blob(["fake"], { type: "image/jpeg" })
+    let resolveFetch: (v: any) => void = () => {}
+    const originalFetch = global.fetch
+    global.fetch = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve
+        })
+    ) as any
+
+    try {
+      const { container } = render(<ImageWarpEditor />)
+      const findSpinner = () => container.querySelector('[data-testid="url-loading-spinner"]')
+
+      // Precondition: sin spinner visible
+      expect(findSpinner()).toBeNull()
+
+      const urlInput = container.querySelector('input[type="url"]') as HTMLInputElement
+      fireEvent.change(urlInput, { target: { value: "https://example.com/img.jpg" } })
+
+      const buttons = Array.from(container.querySelectorAll("button"))
+      const loadBtn = buttons.find((b) =>
+        /cargar url|load url/i.test(b.textContent || "")
+      ) as HTMLButtonElement
+
+      fireEvent.click(loadBtn)
+
+      // Flush React state update
+      await new Promise((r) => setTimeout(r, 0))
+
+      // Durante el fetch: spinner visible
+      expect(findSpinner()).not.toBeNull()
+
+      // Resolver el fetch para que loadFromUrl complete
+      resolveFetch({ ok: true, blob: async () => fakeBlob })
+      await new Promise((r) => setTimeout(r, 20))
+
+      // Post-fetch: spinner ya no esta (el editor cambio a la vista de imagen cargada)
+      expect(findSpinner()).toBeNull()
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+})
+
 describe("ImageWarpEditor: cargar desde URL", () => {
   // AT: pegar URL + click en "Cargar URL" carga la imagen en el editor
   it("AT: cargar por URL activa el editor", async () => {

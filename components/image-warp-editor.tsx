@@ -5,7 +5,7 @@ import type React from "react"
 import { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Upload } from "lucide-react"
+import { Upload, Loader2 } from "lucide-react"
 import ImageCanvas from "./image-canvas"
 import ControlPanel from "./control-panel"
 import { useImageWarpStore, useLanguageStore } from "@/lib/store"
@@ -18,6 +18,7 @@ export default function ImageWarpEditor() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [urlInput, setUrlInput] = useState("")
   const [urlError, setUrlError] = useState<string | null>(null)
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { resetPoints } = useImageWarpStore()
   const { language } = useLanguageStore()
@@ -106,6 +107,7 @@ export default function ImageWarpEditor() {
 
   const loadFromUrl = async (url: string) => {
     setUrlError(null)
+    setIsLoadingUrl(true)
     try {
       // Google Photos / Drive image URLs omit Access-Control-Allow-Origin,
       // so a browser fetch is blocked. Same-origin proxy bypasses that.
@@ -121,6 +123,8 @@ export default function ImageWarpEditor() {
       processFile(file)
     } catch (err) {
       setUrlError(t.urlLoadError)
+    } finally {
+      setIsLoadingUrl(false)
     }
   }
 
@@ -158,16 +162,21 @@ export default function ImageWarpEditor() {
                 placeholder={t.imageUrlPlaceholder}
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
+                disabled={isLoadingUrl}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && urlInput.trim()) loadFromUrl(urlInput.trim())
+                  if (e.key === "Enter" && urlInput.trim() && !isLoadingUrl) loadFromUrl(urlInput.trim())
                 }}
               />
               <Button
                 variant="outline"
-                disabled={!urlInput.trim()}
+                disabled={!urlInput.trim() || isLoadingUrl}
                 onClick={() => loadFromUrl(urlInput.trim())}
               >
-                {t.loadUrl}
+                {isLoadingUrl ? (
+                  <Loader2 className="h-4 w-4 animate-spin" data-testid="url-loading-spinner" />
+                ) : (
+                  t.loadUrl
+                )}
               </Button>
             </div>
             {urlError && <p className="mt-2 text-xs text-destructive">{urlError}</p>}
