@@ -244,9 +244,8 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     // Preview/cropped canvases use original image resolution for full quality
     const fullResSize = { width: originalSize.width, height: originalSize.height }
 
-    // Handle preview canvas based on correction status
-    if (isCorrected) {
-      // Crop + perspective transform at original resolution
+    // Preview tab shows the warped correction; edit tab shows the original with the guide path.
+    if (activeTab === "preview") {
       croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
       cropImage(croppedCtx, image, points, fullResSize)
       previewCtx.clearRect(0, 0, fullResSize.width, fullResSize.height)
@@ -255,7 +254,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
       previewCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
       drawPath(previewCtx, points, fullResSize)
     }
-  }, [image, points, canvasSize, imageSize, originalSize, activeTab, isCorrected, heightScale, isMobile, isDragging, dragPointIndex])
+  }, [image, points, canvasSize, imageSize, originalSize, activeTab, heightScale, isMobile, isDragging, dragPointIndex])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -402,13 +401,13 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
             className={`tab px-4 py-2 ${activeTab === "edit" ? "border-b-2 border-primary font-medium" : "text-muted-foreground"}`}
             onClick={() => setActiveTab("edit")}
           >
-            Edit
+            {t.editTab}
           </button>
           <button
             className={`tab px-4 py-2 ${activeTab === "preview" ? "border-b-2 border-primary font-medium" : "text-muted-foreground"}`}
             onClick={() => setActiveTab("preview")}
           >
-            Preview
+            {t.previewCorrectionTab}
           </button>
         </div>
         <div className="relative">
@@ -450,7 +449,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
             style={getMagnifierStyle() as React.CSSProperties}
           />
         </div>
-        {activeTab === "preview" && isCorrected && (
+        {activeTab === "preview" && (
           <div className="p-3 border-t bg-card">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium">{t.verticalAdjust}</label>

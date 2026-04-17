@@ -13,6 +13,7 @@ export type Translation = {
   // Tabs
   editTab: string;
   exportTab: string;
+  previewCorrectionTab: string;
   
   // Edit controls
   resetPoints: string;
@@ -55,6 +56,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "Edit",
     exportTab: "Export",
+    previewCorrectionTab: "Preview Perspective Correction",
     
     // Edit controls
     resetPoints: "Reset Points",
@@ -96,6 +98,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "Editar",
     exportTab: "Exportar",
+    previewCorrectionTab: "Previsualizar Corrección de Perspectiva",
     
     // Edit controls
     resetPoints: "Restablecer Puntos",
@@ -137,6 +140,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "Éditer",
     exportTab: "Exporter",
+    previewCorrectionTab: "Prévisualiser la Correction de Perspective",
     
     // Edit controls
     resetPoints: "Réinitialiser les Points",
@@ -178,6 +182,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "Bearbeiten",
     exportTab: "Exportieren",
+    previewCorrectionTab: "Perspektivkorrektur Vorschau",
     
     // Edit controls
     resetPoints: "Punkte zurücksetzen",
@@ -219,6 +224,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "Düzenle",
     exportTab: "Dışa Aktar",
+    previewCorrectionTab: "Perspektif Düzeltmesi Önizleme",
     
     // Edit controls
     resetPoints: "Noktaları Sıfırla",
@@ -260,6 +266,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "Редактировать",
     exportTab: "Экспорт",
+    previewCorrectionTab: "Предпросмотр коррекции перспективы",
     
     // Edit controls
     resetPoints: "Сбросить точки",
@@ -301,6 +308,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "編集",
     exportTab: "エクスポート",
+    previewCorrectionTab: "遠近補正プレビュー",
     
     // Edit controls
     resetPoints: "ポイントをリセット",
@@ -342,6 +350,7 @@ export const translations: Record<string, Translation> = {
     // Tabs
     editTab: "编辑",
     exportTab: "导出",
+    previewCorrectionTab: "预览透视校正",
     
     // Edit controls
     resetPoints: "重置控制点",
