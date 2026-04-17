@@ -68,3 +68,27 @@ describe("store: heightScale para ajuste vertical", () => {
     expect(useImageWarpStore.getState().heightScale).toBe(1.0)
   })
 })
+
+describe("store: cleanupStrength para limpieza de fondo", () => {
+  beforeEach(() => {
+    useImageWarpStore.getState().resetPoints()
+  })
+
+  // --- AT: el usuario puede ajustar la intensidad de limpieza ---
+  it("AT: setCleanupStrength(0.7) se refleja en el estado", () => {
+    const store = useImageWarpStore.getState()
+    store.setCleanupStrength(0.7)
+    expect(useImageWarpStore.getState().cleanupStrength).toBe(0.7)
+  })
+
+  it("cleanupStrength inicia en 0 (sin limpieza)", () => {
+    expect(useImageWarpStore.getState().cleanupStrength).toBe(0)
+  })
+
+  it("resetPoints resetea cleanupStrength a 0", () => {
+    const store = useImageWarpStore.getState()
+    store.setCleanupStrength(1.0)
+    store.resetPoints()
+    expect(useImageWarpStore.getState().cleanupStrength).toBe(0)
+  })
+})

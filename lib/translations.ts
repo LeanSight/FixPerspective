@@ -23,6 +23,7 @@ export type Translation = {
   perspectiveCorrected: string;
   controlPoints: string;
   verticalAdjust: string;
+  backgroundCleanup: string;
   
   // Export controls
   quality: string;
@@ -66,6 +67,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "Perspective Corrected",
     controlPoints: "Control Points",
     verticalAdjust: "Vertical Adjustment",
+    backgroundCleanup: "Background Cleanup",
     
     // Export controls
     quality: "Quality",
@@ -108,6 +110,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "Perspectiva Corregida",
     controlPoints: "Puntos de Control",
     verticalAdjust: "Ajuste Vertical",
+    backgroundCleanup: "Limpieza de Fondo",
     
     // Export controls
     quality: "Calidad",
@@ -150,6 +153,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "Perspective Corrigée",
     controlPoints: "Points de Contrôle",
     verticalAdjust: "Ajustement Vertical",
+    backgroundCleanup: "Nettoyage de l'Arrière-plan",
     
     // Export controls
     quality: "Qualité",
@@ -192,6 +196,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "Perspektive korrigiert",
     controlPoints: "Kontrollpunkte",
     verticalAdjust: "Vertikale Anpassung",
+    backgroundCleanup: "Hintergrundbereinigung",
     
     // Export controls
     quality: "Qualität",
@@ -234,6 +239,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "Perspektif Düzeltildi",
     controlPoints: "Kontrol Noktaları",
     verticalAdjust: "Dikey Ayar",
+    backgroundCleanup: "Arka Plan Temizleme",
     
     // Export controls
     quality: "Kalite",
@@ -276,6 +282,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "Перспектива исправлена",
     controlPoints: "Контрольные точки",
     verticalAdjust: "Вертикальная регулировка",
+    backgroundCleanup: "Очистка фона",
     
     // Export controls
     quality: "Качество",
@@ -318,6 +325,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "遠近補正済み",
     controlPoints: "コントロールポイント",
     verticalAdjust: "垂直調整",
+    backgroundCleanup: "背景クリーンアップ",
     
     // Export controls
     quality: "品質",
@@ -360,6 +368,7 @@ export const translations: Record<string, Translation> = {
     perspectiveCorrected: "透视已校正",
     controlPoints: "控制点",
     verticalAdjust: "垂直调整",
+    backgroundCleanup: "背景清理",
     
     // Export controls
     quality: "质量",

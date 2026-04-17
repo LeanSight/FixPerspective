@@ -5,6 +5,7 @@ import type React from "react"
 import { useRef, useEffect, useState } from "react"
 import { useImageWarpStore, useLanguageStore } from "@/lib/store"
 import { drawPath, drawControlPoints, cropImage, perspectiveTransform } from "@/lib/warp"
+import { applyCleanupPipeline } from "@/lib/cleanup"
 import { useMobile } from "@/hooks/use-mobile"
 import { pointToCanvas, canvasToPoint, getPaddedCanvasSize, findHitPoint, PADDING_RATIO } from "@/lib/canvas-utils"
 import { Slider } from "@/components/ui/slider"
@@ -33,7 +34,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const magnifierSize = 130; // Size of the magnifier in pixels
   const magnifierZoom = 3; // Zoom level
   
-  const { points, updatePoint, heightScale, setHeightScale } = useImageWarpStore()
+  const { points, updatePoint, heightScale, setHeightScale, cleanupStrength, setCleanupStrength } = useImageWarpStore()
   const { language } = useLanguageStore()
   const t = getTranslation(language)
 
@@ -250,11 +251,12 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
       cropImage(croppedCtx, image, points, fullResSize)
       previewCtx.clearRect(0, 0, fullResSize.width, fullResSize.height)
       perspectiveTransform(previewCtx, croppedCanvasRef.current, points, fullResSize, heightScale)
+      applyCleanupPipeline(previewCtx, cleanupStrength)
     } else {
       previewCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
       drawPath(previewCtx, points, fullResSize)
     }
-  }, [image, points, canvasSize, imageSize, originalSize, activeTab, heightScale, isMobile, isDragging, dragPointIndex])
+  }, [image, points, canvasSize, imageSize, originalSize, activeTab, heightScale, cleanupStrength, isMobile, isDragging, dragPointIndex])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -450,18 +452,33 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
           />
         </div>
         {activeTab === "preview" && (
-          <div className="p-3 border-t bg-card">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">{t.verticalAdjust}</label>
-              <span className="text-xs text-muted-foreground tabular-nums">{heightScale.toFixed(2)}x</span>
+          <div className="p-3 border-t bg-card space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">{t.verticalAdjust}</label>
+                <span className="text-xs text-muted-foreground tabular-nums">{heightScale.toFixed(2)}x</span>
+              </div>
+              <Slider
+                value={[heightScale]}
+                min={0.5}
+                max={3.0}
+                step={0.05}
+                onValueChange={(value) => setHeightScale(value[0])}
+              />
             </div>
-            <Slider
-              value={[heightScale]}
-              min={0.5}
-              max={3.0}
-              step={0.05}
-              onValueChange={(value) => setHeightScale(value[0])}
-            />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">{t.backgroundCleanup}</label>
+                <span className="text-xs text-muted-foreground tabular-nums">{Math.round(cleanupStrength * 100)}%</span>
+              </div>
+              <Slider
+                value={[cleanupStrength]}
+                min={0}
+                max={1}
+                step={0.05}
+                onValueChange={(value) => setCleanupStrength(value[0])}
+              />
+            </div>
           </div>
         )}
       </div>

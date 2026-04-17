@@ -1,6 +1,7 @@
 "use client"
 
 import type { Point } from "./store"
+import { applyCleanupPipeline } from "./cleanup"
 
 /**
  * Scales (width, height) to fit within a canvas while preserving aspect ratio.
@@ -591,7 +592,7 @@ function solveLinearSystem(A: number[][], b: number[]): number[] {
 }
 
 // Export the warped image to a rectangular output with preserved quality
-export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], quality = 0.9, heightScale = 1.0): string {
+export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], quality = 0.9, heightScale = 1.0, cleanupStrength = 0): string {
   console.log("Starting export with canvas dimensions:", canvas.width, "x", canvas.height)
 
   // Convert normalized points to canvas coordinates
@@ -739,6 +740,11 @@ export function exportWarpedImage(canvas: HTMLCanvasElement, points: Point[], qu
         minX, minY, width, height,  // Source region
         0, 0, width, height         // Destination region (covers the entire output canvas)
       )
+    }
+
+    // Apply background cleanup (flat-field + white-point + saturation) if requested.
+    if (cleanupStrength > 0) {
+      applyCleanupPipeline(outputCtx, cleanupStrength)
     }
 
     // Convert to data URL with the requested quality
