@@ -33,7 +33,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const magnifierSize = 130; // Size of the magnifier in pixels
   const magnifierZoom = 3; // Zoom level
   
-  const { points, updatePoint, isCorrected, heightScale, setHeightScale } = useImageWarpStore()
+  const { points, updatePoint, heightScale, setHeightScale } = useImageWarpStore()
   const { language } = useLanguageStore()
   const t = getTranslation(language)
 

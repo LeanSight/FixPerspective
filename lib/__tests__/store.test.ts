@@ -45,46 +45,6 @@ describe("store: contrato de puntos fuera de rango", () => {
   })
 })
 
-describe("store: isCorrected flag y auto-reset", () => {
-  beforeEach(() => {
-    useImageWarpStore.getState().resetPoints()
-  })
-
-  // --- AT: updatePoint resetea isCorrected ---
-  it("AT: setCorrected(true) seguido de updatePoint resulta en isCorrected=false", () => {
-    const store = useImageWarpStore.getState()
-    store.setCorrected(true)
-    expect(useImageWarpStore.getState().isCorrected).toBe(true)
-
-    store.updatePoint(0, { x: 0.3, y: 0.3 })
-    expect(useImageWarpStore.getState().isCorrected).toBe(false)
-  })
-
-  // --- Unit tests ---
-  it("isCorrected inicia en false", () => {
-    expect(useImageWarpStore.getState().isCorrected).toBe(false)
-  })
-
-  it("setCorrected(true) activa el flag", () => {
-    useImageWarpStore.getState().setCorrected(true)
-    expect(useImageWarpStore.getState().isCorrected).toBe(true)
-  })
-
-  it("setCorrected(false) desactiva el flag", () => {
-    const store = useImageWarpStore.getState()
-    store.setCorrected(true)
-    store.setCorrected(false)
-    expect(useImageWarpStore.getState().isCorrected).toBe(false)
-  })
-
-  it("resetPoints resetea isCorrected a false", () => {
-    const store = useImageWarpStore.getState()
-    store.setCorrected(true)
-    store.resetPoints()
-    expect(useImageWarpStore.getState().isCorrected).toBe(false)
-  })
-})
-
 describe("store: heightScale para ajuste vertical", () => {
   beforeEach(() => {
     useImageWarpStore.getState().resetPoints()

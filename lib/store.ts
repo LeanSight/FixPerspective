@@ -9,11 +9,9 @@ export interface Point {
 
 interface ImageWarpState {
   points: Point[]
-  isCorrected: boolean
   heightScale: number
   updatePoint: (index: number, position: { x: number; y: number }) => void
   resetPoints: () => void
-  setCorrected: (status: boolean) => void
   setHeightScale: (value: number) => void
 }
 
@@ -31,7 +29,6 @@ const DEFAULT_POINTS: Point[] = [
 
 export const useImageWarpStore = create<ImageWarpState>((set) => ({
   points: [...DEFAULT_POINTS],
-  isCorrected: false,
   heightScale: 1.0,
 
   updatePoint: (index, position) =>
@@ -42,12 +39,10 @@ export const useImageWarpStore = create<ImageWarpState>((set) => ({
         x: position.x,
         y: position.y,
       }
-      return { points: newPoints, isCorrected: false }
+      return { points: newPoints }
     }),
 
-  resetPoints: () => set({ points: [...DEFAULT_POINTS], isCorrected: false, heightScale: 1.0 }),
-
-  setCorrected: (status) => set({ isCorrected: status }),
+  resetPoints: () => set({ points: [...DEFAULT_POINTS], heightScale: 1.0 }),
 
   setHeightScale: (value) => set({ heightScale: value }),
 }))
