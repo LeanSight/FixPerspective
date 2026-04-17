@@ -23,30 +23,28 @@ export default function ImageWarpEditor() {
   // Get translations
   const t = getTranslation(language)
 
+  const processFile = (file: File) => {
+    if (imageUrl) {
+      URL.revokeObjectURL(imageUrl)
+    }
+
+    setImageFile(file)
+    const url = URL.createObjectURL(file)
+    setImageUrl(url)
+
+    setFileName(file.name || "image")
+
+    resetPoints()
+
+    // Reset the file input value to ensure change event fires even if the same file is selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      
-      // Clean up previous object URL
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl)
-      }
-      
-      // Set the new file and create a new object URL
-      setImageFile(file)
-      const url = URL.createObjectURL(file)
-      setImageUrl(url)
-      
-      // Save the filename for export
-      setFileName(file.name || "image")
-      
-      // Reset the control points and state
-      resetPoints()
-      
-      // Reset the file input value to ensure change event fires even if the same file is selected
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      processFile(e.target.files[0])
     }
   }
 
