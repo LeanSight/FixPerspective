@@ -190,12 +190,12 @@ describe("computeRealOutputSize", () => {
 })
 
 describe("fitRectToCanvas", () => {
-  // --- AT: el rect no debe exceder los limites del canvas ---
-  it("AT: rect mas ancho que el canvas se reduce preservando aspect ratio", () => {
-    // rect 1000x600, canvas 800x600 → scale = 800/1000 = 0.8
+  // Con solo UN eje overflowing, se clipa ese eje y se preserva el otro
+  // (para que heightScale/widthScale del caller no se mezclen con el fit).
+  it("AT: rect solo con width > canvas clipa el width y deja el height intacto", () => {
     const result = fitRectToCanvas(1000, 600, 800, 600)
     expect(result.width).toBeCloseTo(800)
-    expect(result.height).toBeCloseTo(480) // 600 * 0.8
+    expect(result.height).toBeCloseTo(600)
   })
 
   it("rect que cabe en canvas no se modifica", () => {
@@ -204,25 +204,54 @@ describe("fitRectToCanvas", () => {
     expect(result.height).toBeCloseTo(400)
   })
 
-  it("rect mas alto que el canvas se reduce preservando aspect ratio", () => {
-    // rect 400x1000, canvas 800x600 → scale = 600/1000 = 0.6
+  it("rect solo con height > canvas clipa el height y deja el width intacto", () => {
     const result = fitRectToCanvas(400, 1000, 800, 600)
-    expect(result.width).toBeCloseTo(240) // 400 * 0.6
+    expect(result.width).toBeCloseTo(400)
     expect(result.height).toBeCloseTo(600)
   })
 
-  it("rect mas grande en ambas dimensiones usa el menor ratio", () => {
-    // rect 1000x900, canvas 800x600 → scales: 0.8 (w) vs 0.666 (h) → 0.666
+  // Con ambos ejes overflowing, se cae al fallback proporcional (preserva aspect).
+  it("rect mas grande en ambas dimensiones usa el menor ratio (fallback proporcional)", () => {
     const result = fitRectToCanvas(1000, 900, 800, 600)
     expect(result.width).toBeCloseTo(1000 * (600 / 900))
     expect(result.height).toBeCloseTo(600)
   })
 
-  it("rect con heightScale alto (height excede) se reduce proporcionalmente", () => {
+  it("rect con heightScale alto (height excede, width cabe) preserva el width", () => {
     const result = fitRectToCanvas(700, 1800, 800, 600)
-    const scale = 600 / 1800
-    expect(result.width).toBeCloseTo(700 * scale)
+    expect(result.width).toBeCloseTo(700)
     expect(result.height).toBeCloseTo(600)
+  })
+
+  // --- AT (regresión composicional): subir heightScale sobre un quad que casi
+  // llena el canvas NO debe reducir el width del rect fitted. Falla cuando
+  // fitRectToCanvas aplica scaling proporcional en ambos ejes.
+  it("AT: heightScale > 1 que overflowea canvas.height no debe reducir el width fitted", () => {
+    // Un quad que casi llena un canvas 3000×4000 (márgenes de 100 px).
+    const corners = [
+      { x: 100, y: 100 },
+      { x: 2900, y: 100 },
+      { x: 2900, y: 3900 },
+      { x: 100, y: 3900 },
+    ]
+    const canvasW = 3000
+    const canvasH = 4000
+
+    const base = computeRealOutputSize(corners, canvasW, canvasH, 1.0)
+    const stretched = computeRealOutputSize(corners, canvasW, canvasH, 2.0)
+
+    // Pre-condición: computeRealOutputSize sí respeta heightScale en su output.
+    expect(stretched.width).toBeCloseTo(base.width)
+    expect(stretched.height).toBeCloseTo(base.height * 2)
+
+    const baseFitted = fitRectToCanvas(base.width, base.height, canvasW, canvasH)
+    const stretchedFitted = fitRectToCanvas(stretched.width, stretched.height, canvasW, canvasH)
+
+    // Invariant del dominio: subir heightScale NO debe angostar el width visible.
+    // (Si lo hace, el "ajuste vertical" aparece visualmente como "ajuste horizontal".)
+    expect(stretchedFitted.width).toBeGreaterThanOrEqual(baseFitted.width - 1)
+    // Y debe al menos conservar el alto (típicamente lo lleva al máximo del canvas).
+    expect(stretchedFitted.height).toBeGreaterThanOrEqual(baseFitted.height - 1)
   })
 })
 

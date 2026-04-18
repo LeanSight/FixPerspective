@@ -4,8 +4,19 @@ import type { Point } from "./store"
 import { applyCleanupPipeline } from "./cleanup"
 
 /**
- * Scales (width, height) to fit within a canvas while preserving aspect ratio.
- * Returns unchanged dimensions if the rect already fits.
+ * Clamps (width, height) to the canvas.
+ *
+ * - If neither axis overflows: returns unchanged.
+ * - If only ONE axis overflows: clips that axis to the canvas limit, leaves
+ *   the other axis untouched. Preserves the caller's per-axis intent (e.g.
+ *   heightScale stretching height without shrinking width).
+ * - If BOTH axes overflow: falls back to proportional scaling to preserve
+ *   aspect ratio while fitting inside the canvas (needed for OOB source
+ *   points that produce a drastically oversized rect).
+ *
+ * The single-axis clipping case replaces the older "always proportional"
+ * behavior, which silently converted a pure-height stretch into a width
+ * shrink whenever the stretched height exceeded canvas.height.
  */
 export function fitRectToCanvas(
   width: number,
@@ -13,7 +24,19 @@ export function fitRectToCanvas(
   canvasWidth: number,
   canvasHeight: number
 ): { width: number; height: number } {
-  const scale = Math.min(canvasWidth / width, canvasHeight / height, 1.0)
+  const widthOverflows = width > canvasWidth
+  const heightOverflows = height > canvasHeight
+
+  if (!widthOverflows && !heightOverflows) {
+    return { width, height }
+  }
+  if (widthOverflows && !heightOverflows) {
+    return { width: canvasWidth, height }
+  }
+  if (!widthOverflows && heightOverflows) {
+    return { width, height: canvasHeight }
+  }
+  const scale = Math.min(canvasWidth / width, canvasHeight / height)
   return { width: width * scale, height: height * scale }
 }
 
