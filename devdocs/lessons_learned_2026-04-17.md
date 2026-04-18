@@ -56,7 +56,13 @@ Escribir root cause, trabajo por tick estimado y una tabla de alternativas con t
 ### 2. Cambiar canvasSize de full-res a display-res como "cambio aislado"
 
 - **Hipótesis**: pasar `imageSize` (800 × proporcional) en vez de `originalSize` (3000 × 4000) como `canvasSize` a `perspectiveTransform` era una simple escala uniforme — aspect ratio preservado, la salida sería visualmente equivalente pero 9–16× más barata de computar.
-- **Realidad**: el slider `heightScale` (pensado para estirar el alto del rect de salida) empezó a actuar sobre el **eje horizontal**, y el preview quedó "echado a perder" en términos visuales (reportado por el usuario sin screenshot). El revert se hizo sin debuguear — no hay diagnóstico pinpoint todavía.
+- **Realidad**: el preview quedó "echado a perder" visualmente tras el commit `418dc74`. Se reportó además que `heightScale` empezó a actuar sobre el eje horizontal, pero ese segundo síntoma **no fue causado por este commit** — ver actualización abajo.
+- **[Actualización post-revert + Slice A aislado: commit `938136e`]** Tras rehacer solamente el split de effects (Slice A) sin tocar `canvasSize`, el bug de "heightScale afecta el eje horizontal" **persistió**. Es un bug pre-existente, no inducido por Slice B. Root cause identificada:
+  - `computeRealOutputSize` multiplica `realHeight` por `heightScale` (`lib/warp.ts:196`).
+  - `perspectiveTransform` pasa el resultado por `fitRectToCanvas` que cuando el rect excede `canvas.height` escala **proporcionalmente** ambos ejes para preservar aspect (`lib/warp.ts:10-18`).
+  - Consecuencia: al subir `heightScale`, el alto topa a `canvas.height`, el scaling proporcional reduce el width visible → "ajuste vertical afecta horizontal".
+  - El export nunca tuvo el bug: `exportWarpedImage` crea su propio canvas del tamaño exacto `computeRealOutputSize` sin `fitRectToCanvas`.
+  - **Fix en `938136e`**: en el preview, `heightScale` se aplica como CSS `style.height = imageSize.imageHeight * heightScale` del canvas element. El call a `perspectiveTransform` para preview usa `heightScale = 1.0`. El export sigue con heightScale pixel-level (ruta independiente). Además, `heightScale` sale de las deps de los effects de warp y cleanup → el slider ya no retrigger ninguno (bonus: ahora es gratis en CPU).
 - **Diff exacto del cambio revertido** (`git show 418dc74 -- components/image-canvas.tsx` para los 3 hunks completos):
 
   ```diff
@@ -73,12 +79,11 @@ Escribir root cause, trabajo por tick estimado y una tabla de alternativas con t
 
   Y las dimensiones de los 3 canvas ref pasaron de `image.width/height` a `imgW/imgH` (`maxWidth=800`). El propio `imageSize.imageWidth` es idéntico a `imgW`, así que `previewSize.width = 800` y `previewSize.height = img.height * 800 / img.width`.
 
-- **Hipótesis abiertas, ordenadas por costo de verificación**:
-  1. **[Primero — más barato]** Intercambio accidental width/height en algún call site que no revisé al reemplazar `fullResSize` por `previewSize`. Verificación: re-leer los 3 hunks del diff arriba buscando `previewSize.width` o `.height` mal asignados. Mínimos minutos.
-  2. **[Segundo]** `fitRectToCanvas` escala el rect para que entre en `canvasSize` preservando aspect. Cuando `canvasSize` es display-res (800×600), `realSize.height × heightScale` puede exceder `canvasSize.height` mucho antes que con `canvasSize = originalSize`, disparando scale-down que rompe la semántica del slider. Verificación: `console.log` del rect pre y post `fitRectToCanvas` con `heightScale=2` en ambas resoluciones.
-  3. **[Tercero]** `identifyCorners(quadPoints)` en `lib/warp.ts:761` reclasifica TL/TR/BR/BL buscando el punto más cercano a cada esquina del bounding box (`Math.hypot` contra `(minX,minY)`, `(maxX,minY)`, etc). Con coordenadas chicas (800 vs 3000) los empates numéricos o un punto ligeramente fuera de rango pueden resolverse al revés → ejes rotados. Verificación: unit test sintético con el mismo quad a 3000-px y 800-px, asertar mismo ordenamiento.
-  4. **[Último — más caro]** Precisión numérica de la matriz de homografía en `perspectiveProjectionMatrix` (Gaussian elimination con floats de magnitud reducida). Verificación: matriz serializada para ambas resoluciones y diff pixel-por-pixel del warp.
-- **Lección**: `perspectiveTransform` + `computeRealOutputSize` + `fitRectToCanvas` tienen acoplamientos no obvios entre `canvasSize`, `heightScale` y el aspect ratio del rect de salida. Cualquier cambio de `canvasSize` necesita reproducción visual antes de asumir equivalencia, y conviene aislar primero el split de effects (Slice A solo) antes de tocar dimensiones.
+- **Hipótesis abiertas sobre el daño visual adicional de `418dc74`** (no investigadas; sólo relevantes si se retoma el downsample del preview):
+  1. `identifyCorners(quadPoints)` en `lib/warp.ts:761` reclasifica TL/TR/BR/BL buscando el punto más cercano a cada esquina del bounding box. Con coordenadas chicas (800 vs 3000) empates numéricos o un punto ligeramente fuera pueden resolverse al revés.
+  2. Precisión numérica de `perspectiveProjectionMatrix` (Gaussian elimination) con floats de magnitud reducida.
+  3. Intercambio accidental width/height al reemplazar `fullResSize` por `previewSize` (re-leer los 3 hunks arriba).
+- **Lección**: dos bugs separados se presentaron como uno. El `heightScale × fitRectToCanvas` era latente antes de la sesión — fitRectToCanvas está diseñado para contener rects con OOB source points, no para coexistir con un stretch deliberado. Generalmente: cuando dos mecanismos de saneamiento (fitRectToCanvas protegiendo overflow, heightScale provocándolo intencionalmente) comparten un código path, el segundo se rompe silencioso. Futuros cambios de `canvasSize` en preview deben recordar que `heightScale` ahora es CSS-level y el warp interno siempre usa 1.0 — eso desacopla un eje de riesgo.
 
 ### 3. Procedimiento de verificación manual (lo que faltó ejecutar entre slices)
 
@@ -92,7 +97,7 @@ Concreto y ejecutable para la próxima iteración:
    - Iluminación desigual visible (sombra de cabeza o vignette del flash) → sin esto el slider de cleanup no tiene nada que corregir y no detectás regresiones en esa capa.
 3. **Marcar las 4 esquinas del quad** en el tab **Edit**: hay 4 puntos azules numerados (defaults en 0.2/0.8 del ancho y alto). Se mueven arrastrándolos con el mouse o touch. Ver `components/image-canvas.tsx` handlers `handleMouseDown`/`handleMouseMove`/`handleTouchStart`/`handleTouchMove`.
 4. Cambiar al tab **Previsualizar Corrección de Perspectiva**. Verificar que se ve la imagen warped correcta (rectangular, post-its no deformados).
-5. **Prueba de `heightScale`**: mover el slider etiquetado **Ajuste Vertical** (primer slider del panel) de `1.00x` hacia `2.00x`. La imagen debe **estirarse en el eje vertical** (post-its más altos). Si se estira en el horizontal, hay regresión como la del commit `418dc74` revertido.
+5. **Prueba de `heightScale`**: mover el slider etiquetado **Ajuste Vertical** (primer slider del panel) de `1.00x` hacia `2.00x`. La imagen del preview debe **estirarse en el eje vertical** (canvas element se vuelve más alto vía CSS, contenido del bitmap sin cambios). El slider debe sentirse **instantáneo** — ya no dispara perspectiveTransform ni applyCleanupPipeline tras el fix `938136e`. El export con heightScale=2 produce un archivo con alto duplicado a nivel pixel.
 6. **Prueba de `cleanupStrength`**: con `Ajuste Vertical` en `1.00x`, mover el slider etiquetado **Limpieza de Fondo** (segundo slider) de `0%` a `100%`. El fondo debe blanquearse progresivamente, los colores de los post-its deben conservarse y "potenciarse" (saturación × 1.3 en el extremo, ver `lib/cleanup.ts:boostSaturation` con factor `1 + 0.3 * strength` dentro de `applyCleanupPipeline`).
 7. **Prueba de performance**: con foto ≥3 MP, arrastrar el slider continuo. Dos formas de medir:
 
