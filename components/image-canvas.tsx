@@ -266,8 +266,11 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
     cropImage(croppedCtx, image, points, fullResSize)
     warpedCtx.clearRect(0, 0, warped.width, warped.height)
-    perspectiveTransform(warpedCtx, cropped, points, fullResSize, heightScale)
-  }, [image, points, originalSize, activeTab, heightScale])
+    // heightScale is applied as a CSS transform on the preview canvas below,
+    // not at the pixel level, so the warp stays within the original aspect.
+    // The export path (control-panel.tsx) still uses pixel-level heightScale.
+    perspectiveTransform(warpedCtx, cropped, points, fullResSize, 1.0)
+  }, [image, points, originalSize, activeTab])
 
   // Cleanup effect: copies the cached warpedCanvas into previewCanvas and
   // applies the cleanup pipeline. Re-runs on cleanupStrength changes, reusing
@@ -283,7 +286,7 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     previewCtx.clearRect(0, 0, preview.width, preview.height)
     previewCtx.drawImage(warped, 0, 0)
     applyCleanupPipeline(previewCtx, cleanupStrength)
-  }, [image, points, originalSize, activeTab, heightScale, cleanupStrength])
+  }, [image, points, originalSize, activeTab, cleanupStrength])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -461,7 +464,10 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
             className={activeTab === "preview" ? "block" : "hidden"}
             style={{
               width: imageSize.imageWidth,
-              height: imageSize.imageHeight,
+              // heightScale stretches the preview vertically via CSS (cheap).
+              // The pixel-level warp stays at heightScale=1; export applies
+              // heightScale at the pixel level via exportWarpedImage.
+              height: imageSize.imageHeight * heightScale,
             }}
           />
           <canvas
