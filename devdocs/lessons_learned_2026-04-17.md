@@ -121,6 +121,16 @@ Concreto y ejecutable para la próxima iteración:
 
 Alternativas descartadas: (a) spies sobre `perspectiveTransform` para asertar que no se llama con solo cambio de `cleanupStrength` → prohibido por bdd-skill (verificación por interacción en dominio); (b) pixel-level assertions sobre canvas → jsdom no soporta `ctx.getImageData`/`ctx.filter` fiel. **Regla operativa**: para slices de perf en canvas, manual-verify documentado + ejecutado es la frontera externa; tests GREEN no es condición suficiente.
 
+### 5. Tests existentes codificaban el bug de `fitRectToCanvas` como spec
+
+Tras identificar el root cause del "heightScale = horizontal" (commit `938136e`), se cerró la brecha con commit `9916864`:
+
+- `fitRectToCanvas` ahora clipa por eje independiente cuando solo uno overflowea.
+- Se añadió **1 AT composicional** al estilo GOOS-sin-mocks (`lib/__tests__/warp.test.ts`): ejercita `computeRealOutputSize + fitRectToCanvas` con `heightScale=2` sobre un quad que casi llena el canvas, y aserta que el width del rect fitted no se reduce. La AT está articulada como invariant de dominio (*"subir heightScale no debe angostar el width visible"*) en G/W/T, no sobre el output actual de la impl.
+- Se actualizaron **3 tests pre-existentes** que asertaban la reducción proporcional en escenarios de un-eje-overflow como comportamiento esperado — codificaban el bug como spec y daban falsa confianza al test suite (73/73 en verde).
+
+**Lección metodológica** (GOOS-sin-mocks, ver `docs/desarrollo/goos-sin-mocks-python.md` en `cen-valtx4`): cada test debe derivarse de un invariant de dominio articulado en lenguaje funcional. Si la assertion recuerda al output de la implementación (e.g. `expect(result.width).toBeCloseTo(700 * 0.333)`) en vez de al intent del usuario (e.g. `expect(widthWithStretch).toBeGreaterThanOrEqual(widthWithoutStretch)`), el test está mal concebido: cementa la impl en vez de protegerla.
+
 ## Hallazgos técnicos clave
 
 1. **jsdom no expone `ImageData` como global** — el test debe construir objetos plano `{data, width, height}` con cast `as ImageData` y las funciones de `lib/cleanup.ts` deben consumir ese shape en vez de hacer `new ImageData(...)`. Evidencia: error `ReferenceError: ImageData is not defined` al correr `lib/__tests__/cleanup.test.ts`, resuelto en sesión previa modificando el return de los 3 helpers + el blend de `applyCleanupPipeline` (`lib/cleanup.ts:22`, `:47`, `:56`, `:100` — ver cada `return { data: out, width: src.width, height: src.height } as ImageData`).
