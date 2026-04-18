@@ -19,6 +19,9 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
   const croppedCanvasRef = useRef<HTMLCanvasElement>(null)
+  // Offscreen canvas caching the warped result. Re-populated only when the
+  // quad or heightScale change; cleanup slider reuses it.
+  const warpedCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const magnifierCanvasRef = useRef<HTMLCanvasElement>(null)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -64,6 +67,9 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
         previewCanvasRef.current.height = img.height
         croppedCanvasRef.current.width = img.width
         croppedCanvasRef.current.height = img.height
+        if (!warpedCanvasRef.current) warpedCanvasRef.current = document.createElement("canvas")
+        warpedCanvasRef.current.width = img.width
+        warpedCanvasRef.current.height = img.height
 
         if (magnifierCanvasRef.current) {
           magnifierCanvasRef.current.width = magnifierSize;
@@ -169,31 +175,30 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
 
       canvasRef.current.width = padded.width
       canvasRef.current.height = padded.height
-      // Preview/cropped keep original resolution (no change on resize)
+      // Preview/cropped/warped keep original resolution (no change on resize)
       previewCanvasRef.current.width = image.width
       previewCanvasRef.current.height = image.height
       croppedCanvasRef.current.width = image.width
       croppedCanvasRef.current.height = image.height
+      if (warpedCanvasRef.current) {
+        warpedCanvasRef.current.width = image.width
+        warpedCanvasRef.current.height = image.height
+      }
     }
 
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
   }, [image, isMobile])
 
-  // Draw canvas
+  // Draw the edit canvas (padded background + image + quad path + control
+  // points). Preview and cropped canvases are managed by the warp and cleanup
+  // effects below.
   useEffect(() => {
-    if (!canvasRef.current || !image || !previewCanvasRef.current || !croppedCanvasRef.current) return
-
+    if (!canvasRef.current || !image) return
     const ctx = canvasRef.current.getContext("2d")
-    const previewCtx = previewCanvasRef.current.getContext("2d")
-    const croppedCtx = croppedCanvasRef.current.getContext("2d")
+    if (!ctx) return
 
-    if (!ctx || !previewCtx || !croppedCtx) return
-
-    // Clear canvases
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-    previewCtx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height)
-    croppedCtx.clearRect(0, 0, croppedCanvasRef.current.width, croppedCanvasRef.current.height)
 
     // Draw padding area background (checkerboard pattern to distinguish from image)
     const padX = PADDING_RATIO * imageSize.imageWidth
@@ -242,19 +247,43 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
       ctx.fillText((index + 1).toString(), px, py);
     });
 
-    // Preview/cropped canvases use original image resolution for full quality
-    const fullResSize = { width: originalSize.width, height: originalSize.height }
+  }, [image, points, canvasSize, imageSize, isMobile, isDragging, dragPointIndex])
 
-    // Preview canvas is hidden when activeTab === "edit" (className="hidden"),
-    // so only paint it when actually visible.
-    if (activeTab === "preview") {
-      croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
-      cropImage(croppedCtx, image, points, fullResSize)
-      previewCtx.clearRect(0, 0, fullResSize.width, fullResSize.height)
-      perspectiveTransform(previewCtx, croppedCanvasRef.current, points, fullResSize, heightScale)
-      applyCleanupPipeline(previewCtx, cleanupStrength)
-    }
-  }, [image, points, canvasSize, imageSize, originalSize, activeTab, heightScale, cleanupStrength, isMobile, isDragging, dragPointIndex])
+  // Warp effect: writes the expensive perspectiveTransform output into the
+  // offscreen warpedCanvas. Re-runs only when points, heightScale, image or
+  // activeTab change — not on cleanupStrength changes.
+  useEffect(() => {
+    if (!image || activeTab !== "preview") return
+    const cropped = croppedCanvasRef.current
+    const warped = warpedCanvasRef.current
+    if (!cropped || !warped) return
+    const croppedCtx = cropped.getContext("2d", { willReadFrequently: true })
+    const warpedCtx = warped.getContext("2d", { willReadFrequently: true })
+    if (!croppedCtx || !warpedCtx) return
+
+    const fullResSize = { width: originalSize.width, height: originalSize.height }
+    croppedCtx.clearRect(0, 0, cropped.width, cropped.height)
+    croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
+    cropImage(croppedCtx, image, points, fullResSize)
+    warpedCtx.clearRect(0, 0, warped.width, warped.height)
+    perspectiveTransform(warpedCtx, cropped, points, fullResSize, heightScale)
+  }, [image, points, originalSize, activeTab, heightScale])
+
+  // Cleanup effect: copies the cached warpedCanvas into previewCanvas and
+  // applies the cleanup pipeline. Re-runs on cleanupStrength changes, reusing
+  // the cached warp.
+  useEffect(() => {
+    if (!image || activeTab !== "preview") return
+    const preview = previewCanvasRef.current
+    const warped = warpedCanvasRef.current
+    if (!preview || !warped) return
+    const previewCtx = preview.getContext("2d", { willReadFrequently: true })
+    if (!previewCtx) return
+
+    previewCtx.clearRect(0, 0, preview.width, preview.height)
+    previewCtx.drawImage(warped, 0, 0)
+    applyCleanupPipeline(previewCtx, cleanupStrength)
+  }, [image, points, originalSize, activeTab, heightScale, cleanupStrength])
 
   // Handle mouse events
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
