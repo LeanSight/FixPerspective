@@ -245,16 +245,14 @@ export default function ImageCanvas({ imageUrl }: ImageCanvasProps) {
     // Preview/cropped canvases use original image resolution for full quality
     const fullResSize = { width: originalSize.width, height: originalSize.height }
 
-    // Preview tab shows the warped correction; edit tab shows the original with the guide path.
+    // Preview canvas is hidden when activeTab === "edit" (className="hidden"),
+    // so only paint it when actually visible.
     if (activeTab === "preview") {
       croppedCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
       cropImage(croppedCtx, image, points, fullResSize)
       previewCtx.clearRect(0, 0, fullResSize.width, fullResSize.height)
       perspectiveTransform(previewCtx, croppedCanvasRef.current, points, fullResSize, heightScale)
       applyCleanupPipeline(previewCtx, cleanupStrength)
-    } else {
-      previewCtx.drawImage(image, 0, 0, fullResSize.width, fullResSize.height)
-      drawPath(previewCtx, points, fullResSize)
     }
   }, [image, points, canvasSize, imageSize, originalSize, activeTab, heightScale, cleanupStrength, isMobile, isDragging, dragPointIndex])
 
